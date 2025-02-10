@@ -1,5 +1,7 @@
 import { DB } from './supabaseClient'
+import type { TableName, TableColumn } from './supabaseClient'
 import type { Tables } from "./database.types";
+import { toNum } from './util'
 
 
 class Age {
@@ -28,146 +30,96 @@ class Age {
         }
     }
 
-    async getPuesto(id: string) {
-        if (typeof id !== "string") return null;
-        const i = parseInt(id);
-        if (isNaN(i)) return null;
-        const [p, g]:
-        [Tables<"puesto">, string[]]
+    async getPuesto(idPuesto: string|number) {
+        const id = toNum(idPuesto);
+        if (id == null) return null;
+        const [p, g]
         = await Promise.all([
             DB.get_one("puesto", id),
-            DB.selectWhere("puesto_grupo.grupo", "puesto", id)
+            DB.selectColumnWhere("puesto_grupo", "grupo", "puesto", id)
         ]);
-        const puesto = {...p, grupo: g};
+        const puesto = {
+            ...p,
+            grupo: <string[]>g
+        };
         return puesto;
     }
 
-    async getFullPuesto(id: string) {
-        if (typeof id !== "string") return null;
-        const i = parseInt(id);
-        if (isNaN(i)) return null;
-        const p = await DB.get_one("full_puesto", id);
+    async getFullPuesto(idPuesto: number) {
+        const id = toNum(idPuesto);
+        if (id == null) return null;
+        const p = await this.__getFullPuesto(id);
 
-        const __get = async (t, id) => id==null?null:await this.db.get_one(t, id);
-        const __toArr = (v) => (v||'').split(/\t/).filter(x=>x.length>0);
-        const __getFromPuesto = async (table) => {
-            //const arr = await this.#db.selectWhere("puesto_"+table+"."+table, "puesto", id);
-            const arr = __toArr(p[table]);
-            if (arr.length==0) return [];
-            const vals = await this.#db.get(table, ...arr);
+        const __toArr = (v: string|null) => (v||'').split(/\t/).filter(x=>x.length>0);
+        const __getFromPuesto = async <
+            T extends TableColumn<"full_puesto"> & TableName
+        >(table: T) => {
+            const arr = __toArr(p[table] as string|null);
+            if (arr.length==0) return [] as Tables<T>[];
+            const vals = <Tables<T>[]> await DB.get(table, ...arr);
             return vals;
         }
-        p.grupo = __toArr(p.grupo);
+        const
         [
-            p.cuerpo,
-            p.observacion,
-            p.titulacion,
-            //p.grupo,
-            //p.cargo,
-            //p.administracion,
-            //p.tipo,
-            //p.provision,
-            //p.formacion,
-            p.unidad,
-            p.localidad
+            cuerpo,
+            observacion,
+            titulacion,
+            unidad,
+            localidad
         ] = await Promise.all([
             __getFromPuesto("cuerpo"),
             __getFromPuesto("observacion"),
             __getFromPuesto("titulacion"),
-            //this.#db.selectWhere("puesto_grupo.grupo", "puesto", id),
-            //__get("cargo.txt", p.cargo),
-            //__get("administracion.txt", p.administracion),
-            //__get("tipo_puesto.txt", p.tipo),
-            //__get("provision.txt", p.provision),
-            //__get("formacion.txt", p.formacion),
-            __get("unidad", p.unidad),
-            __get("localidad", p.localidad)
+            DB.get_one("unidad", p.unidad!),
+            DB.get_one("localidad", p.localidad!)
         ]);
-        //if (p.localidad==null) p.localidad = await __get("localidad", unidad.localidad);
 
+        const
         [
-            p.provincia,
-            p.centro
+            provincia,
+            centro
         ] = await Promise.all([
-            __get("provincia", p.localidad.provincia),
-            __get("centro", p.unidad.centro),
+            DB.get_one("provincia", localidad!.provincia),
+            DB.get_one("centro", unidad!.centro)
         ]);
 
+        const
         [
-            p.pais,
-            p.ministerio
+            pais,
+            ministerio
         ] = await Promise.all([
-            __get("pais", p.provincia.pais),
-            __get("ministerio", p.centro.ministerio),
+            DB.get_one("pais", provincia!.pais),
+            DB.get_one("ministerio", centro!.ministerio)
         ]);
 
-        return new FullPuesto(p);
+        const full = {
+            ...p,
+            id: p.id!,
+            grupo: __toArr(p.grupo),
+            cuerpo: cuerpo,
+            observacion: observacion,
+            titulacion: titulacion,
+            provincia: provincia,
+            centro: centro,
+            pais:pais,
+            ministerio:ministerio,
+            lugar: [localidad, provincia, pais]
+            .filter(x=>x.id>0)
+            .map(x=>{
+                const arr = x.txt.split(/, /);
+                if (arr.length!=2) return x.txt;
+                return arr[1]+' '+arr[0];
+            })
+            .filter((txt, i, arr) => (i==0) || (arr[i-1]!=txt))
+            .join(", "),
+            organizacion: [unidad, centro, ministerio].filter(x=>x.id>0)
+        }
+        return full;
+    }
+
+    private async __getFullPuesto(id: number) {
+        return <Tables<"full_puesto">> await DB.get_one("full_puesto", id);
     }
 }
 
-class FullPuesto extends Item {
-    /** @type {string[]} */
-    get grupo() {
-        return this._obj.grupo;
-    }
-    /** @type {number} */
-    get nivel() {
-        return this._obj.nivel;
-    }
-    /** @type {number} */
-    get especifico() {
-        return this._obj.especifico;
-    }
-    /** @type {string} */
-    get cargo() {
-        return this._obj.cargo;
-    }
-    /** @type {string} */
-    get administracion() {
-        return this._obj.administracion;
-    }
-    /** @type {string} */
-    get tipo() {
-        return this._obj.tipo;
-    }
-    /** @type {string} */
-    get provision() {
-        return this._obj.provision;
-    }
-    /** @type {string} */
-    get formacion() {
-        return this._obj.formacion;
-    }
-    /** @type {boolean} */
-    get vacante() {
-        return this._obj.vacante;
-    }
-    /** @type {id: number, txt: number}[] */
-    get organizacion() {
-        return [this._obj.unidad, this._obj.centro, this._obj.ministerio].filter(x=>x.id>0)
-    }
-    /** @type {string}[] */
-    get lugar() {
-        return [this._obj.localidad, this._obj.provincia, this._obj.pais]
-        .filter(x=>x.id>0)
-        .map(x=>{
-            const arr = x.txt.split(/, /);
-            if (arr.length!=2) return x.txt;
-            return arr[1]+' '+arr[0];
-        })
-        .filter((txt, i, arr) => (i==0) || (arr[i-1]!=txt))
-        .join(", ");
-    }
-    /** @type {id: number, txt: number}[] */
-    get cuerpo() {
-        return this._obj.cuerpo;
-    }
-    /** @type {id: number, txt: number}[] */
-    get observacion() {
-        return this._obj.observacion;
-    }
-    /** @type {id: number, txt: number}[] */
-    get titulacion() {
-        return this._obj.titulacion;
-    }
-}
+export const AGE = new Age();

@@ -43,3 +43,21 @@ export function cacheAsync<T extends (...args: unknown[]) => Promise<unknown>>(
 
   return descriptor;
 }
+
+export function toNum(s: unknown) {
+  if (s == null) return null;
+  if (typeof s === "number") return s;
+  if (typeof s !== "string") return null;
+  const n = parseFloat(s);
+  if (isNaN(n)) return null;
+  return n;
+}
+
+
+export function toString(n: number, dec?: number) {
+  if (dec == null) dec = 0;
+  return n.toLocaleString("es-ES", {
+    minimumFractionDigits: dec,
+    maximumFractionDigits: dec,
+  });
+}

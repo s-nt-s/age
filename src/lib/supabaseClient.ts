@@ -6,8 +6,9 @@ import type {
 } from "@supabase/supabase-js";
 
 type _TableName = keyof Database["public"]["Tables"];
-type TableName = _TableName | keyof Database["public"]["Views"];
-type TableColumn<T extends TableName> = keyof Tables<T>;
+type _ViewName = keyof Database["public"]["Views"];
+export type TableName = _TableName | _ViewName;
+export type TableColumn<T extends TableName> = keyof Tables<T>;
 
 export class Db {
   private readonly onerror: ((e: PostgrestError) => void) | null;
@@ -31,75 +32,78 @@ export class Db {
     return obj.data;
   }
 
-  async all(table: TableName) {
+  async all<T extends TableName>(table: T) {
     return this.get(table);
   }
 
-  private unpack(
-    table_field: string
-  ): readonly [TableName, TableColumn<TableName> | undefined] {
-    if (typeof table_field !== "string") throw `${table_field} no es un string`;
-    const arr = table_field.split(".");
-    if (arr.length == 0 || arr.length > 2)
-      throw `${table_field} no cumple el formato`;
-    const table = <TableName>arr[0];
-    if (arr.length == 1) return [table, undefined] as const;
-    const field = <TableColumn<TableName>>arr[1];
-    return [table, field] as const;
+  private from(t: TableName) {
+    return this.db.from(<_TableName>t);
   }
 
-  async _selectWhere<T extends TableName, C extends TableColumn<T>>(
+  async selectColumnWhere<T extends TableName, C extends TableColumn<T>>(
+    table: T,
+    fieldName: C,
+    where_fieldName?: C,
+    ...arr: (number | string)[]
+  ): Promise<Tables<T>[C][]> {
+    const r = await this.__selectWhere(table, fieldName, where_fieldName, ...arr);
+    return r.map((i) => i[fieldName]);
+  }
+
+  async selectTableWhere<T extends TableName, C extends TableColumn<T>>(
+    table: T,
+    where_fieldName?: C,
+    ...arr: (number | string)[]
+  ): Promise<Tables<T>[]> {
+    const r = await this.__selectWhere(table, undefined, where_fieldName, ...arr);
+    return r;
+  }
+
+  private async __selectWhere<T extends TableName, C extends TableColumn<T>>(
     table: T,
     fieldName?: C,
     where_fieldName?: C,
     ...arr: (number | string)[]
   ): Promise<Tables<T>[]> {
-    //let [table, field] = this.unpack(table_field);
-    const field = <string | undefined>fieldName ?? "*";
-    const where_field = <string | undefined>where_fieldName;
+    const field = (fieldName ?? "*").toString();
+    const where_field = where_fieldName==undefined?undefined:where_fieldName.toString();
     const table_field = table + "." + field;
-    let prm = this.db.from(<_TableName>table).select(field);
+    let prm = this.from(table).select(field);
     if (where_field != undefined) {
       if (arr.length == 1) prm = prm.eq(where_field, arr[0]);
       else if (arr.length > 1) prm = prm.in(where_field, arr);
     }
-    if (field != null) prm = prm.order(field, { ascending: true });
+    if (field != '*') prm = prm.order(field, { ascending: true });
     const r = <Tables<T>[]>(
       this.get_data(
         arr.length == 0 ? table_field : `${table_field}[${where_field}=${arr}]`,
         await prm
       )
     );
+    if (r.length == 0) return r;
+    if (field != '*') {
+      const id = "id" in r[0]?r[0]['id']:null;
+      type N = { id: number} & Tables<T>;
+      type S = { id: string} & Tables<T>;
+      if (typeof id == "number") return (<N[]>r).sort((a, b) => b.id - a.id);
+      if (typeof id == "string") return (<S[]>r).sort((a, b) => b.id.localeCompare(a.id));
+    }
     return r;
   }
 
-  async selectWhere(
-    table_field: string,
-    where_fieldName?: string,
-    ...arr: (number | string)[]
-  ) {
-    const tf = this.unpack(table_field);
-    const table: TableName = tf[0];
-    const field = <TableColumn<typeof table>|undefined>tf[1];
-    const where_field = <typeof field>where_fieldName;
-    const r = await this._selectWhere(table, field, where_field, ...arr);
-    if (field == null) {
-      if (r.length == 0) return r;
-      const id = "id" in r[0]?r[0]['id']:null;
-      if (typeof id == "number") return (<{ id: number}[]>r).sort((a, b) => b.id - a.id);
-      if (typeof id == "string") return (<{ id: string}[]>r).sort((a, b) => b.id.localeCompare(a.id));
-      return r;
-    }
-    return r.map((i) => i[field]);
-  }
-  async get_one(table: TableName, id: number | string) {
-    const r = await this.selectWhere(table, "id", id);
+  async get_one<T extends TableName>(table: T, id: number | string) {
+    const r = <Tables<T>[]>await this.selectTableWhere(table, "id" as TableColumn<T>, id);
     if (r.length == 1) return r[0];
     throw `${table}[id=${id}] devuelve ${r.length} resultados`;
   }
 
-  private async get(table: TableName, ...ids: (number | string)[]) {
-    return await this.selectWhere(table, "id", ...ids);
+  async safe_get_one<T extends TableName>(table: T, id: number | string | null) {
+    if (id == null) return null;
+    return this.get_one(table, id);
+  }
+
+  async get<T extends TableName>(table: T, ...ids: (number | string)[]) {
+    return <Tables<T>[]>await this.selectTableWhere(table, "id" as TableColumn<T>, ...ids);
   }
 }
 

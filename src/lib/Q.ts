@@ -81,6 +81,23 @@ class MKQ {
     }
     return v;
   }
+  getArr(k: string, spl: string) {
+    let v=this.Q[k];
+    if (typeof v !== "string") return [];
+    const arr =  v.split(spl).map(s => s.trim()).filter(s => s.length);
+    if (arr.length==0) return [];
+    return arr;
+  }
+  getStr(k: string) {
+    let v=this.Q[k];
+    if (typeof v !== "string") return '';
+    return v;
+  }
+  getNum(k: string) {
+    let v=this.Q[k];
+    if (typeof v !== "number") return NaN;
+    return v;
+  }
   isEmpty() {
     return this.Q==null || Object.keys(this.Q).length==0;
   }

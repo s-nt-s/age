@@ -559,19 +559,19 @@ export type Database = {
       }
       unidad: {
         Row: {
-          centro: number | null
+          centro: number
           id: number
           localidad: number
           txt: string
         }
         Insert: {
-          centro?: number | null
+          centro: number
           id: number
           localidad: number
           txt: string
         }
         Update: {
-          centro?: number | null
+          centro?: number
           id?: number
           localidad?: number
           txt?: string
