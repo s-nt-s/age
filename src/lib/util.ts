@@ -59,5 +59,12 @@ export function toString(n: number, dec?: number) {
   return n.toLocaleString("es-ES", {
     minimumFractionDigits: dec,
     maximumFractionDigits: dec,
+    useGrouping: true
   });
+}
+
+export function toElement(html: string) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+  return doc.body.firstElementChild as HTMLElement;
 }

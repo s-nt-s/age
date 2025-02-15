@@ -4,6 +4,8 @@ import { Q } from "./lib/Q.ts";
 import { Nomina } from './lib/nomina'
 import { toString } from './lib/util'
 
+const BASE_URL = import.meta.env.BASE_URL;
+
 function getGrupos(p: Awaited<ReturnType<typeof AGE.getFullPuesto>>) {
   if (p == null) return [];
   if (p.grupo.length > 1) {
@@ -46,9 +48,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   const id = Q.getNum("puesto");
   const p = await AGE.getFullPuesto(id);
   if (p == null) throw `Puesto ${id} no encontrado`;
-  const [g, n] = await Promise.all([
-    await DB.get("grupo", ...getGrupos(p)),
-    await DB.safe_get_one("nivel", p.nivel),
+  const [html, g, n] = await Promise.all([
+    fetch(`${BASE_URL}puesto.html`).then(r=>r.text()),
+    DB.get("grupo", ...getGrupos(p)),
+    DB.safe_get_one("nivel", p.nivel),
   ]);
   document.title = (() => {
     const t = `Puesto ${id}`;
@@ -59,6 +62,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (g == null && n == null) return t;
     return t + " (" + [gr, n?.id].filter((x) => x != null).join(" ") + ")";
   })();
+  document.getElementById("main")!.innerHTML = html;
   addDd("puesto", p.id);
   if (g.length==0) {
     const gr = g[0];
