@@ -4,7 +4,13 @@ import { Q } from "./lib/Q.ts";
 import { Nomina } from './lib/nomina'
 import { toString } from './lib/util'
 
-const BASE_URL = import.meta.env.BASE_URL;
+const homelink = (()=>{
+  const home = document.getElementById("homelink");
+  if (!(home instanceof HTMLAnchorElement)) return '';
+  const href = home.href;
+  if (href==null || href.length==0) return '';
+  return href.replace(/\/$/, "");
+})();
 
 function getGrupos(p: Awaited<ReturnType<typeof AGE.getFullPuesto>>) {
   if (p == null) return [];
@@ -49,7 +55,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const p = await AGE.getFullPuesto(id);
   if (p == null) throw `Puesto ${id} no encontrado`;
   const [html, g, n] = await Promise.all([
-    fetch(`${BASE_URL}puesto.html`).then(r=>r.text()),
+    fetch(`${homelink}/puesto.html`).then(r=>r.text()),
     DB.get("grupo", ...getGrupos(p)),
     DB.safe_get_one("nivel", p.nivel),
   ]);
@@ -63,27 +69,32 @@ document.addEventListener("DOMContentLoaded", async () => {
     return t + " (" + [gr, n?.id].filter((x) => x != null).join(" ") + ")";
   })();
   document.getElementById("main")!.innerHTML = html;
+  const prtGrupo = (gid:string) => p.singrupo?`<span title='El grupo no aparece en la RPT, este valor se ha inferido a traves del nivel'>¿${gid}?</span>`:gid;
   addDd("puesto", p.id);
   if (g.length==1) {
     const gr = g[0];
-    addDd("grupo", gr.id);
+    addDd("grupo", prtGrupo(gr.id));
     const bruto = Nomina.getBrutoAnual(gr.base, gr.extra_base, (n?n.destino:0), p.especifico??0)
     addDd("sueldo", `<a title='${toString(bruto, 2)} €/año' href='../sueldo/?${id}&${gr.id}'>${toString(bruto)} €/año</a>`);
   } else {
     addDd("grupo", ...g.map(gr=>{
         const bruto = Nomina.getBrutoAnual(gr.base, gr.extra_base, (n?n.destino:0), p.especifico??0)
-        return `<a href="?${id}&${gr.id}">${gr.id}</a> (<a title='${toString(bruto, 2)} €/año' href='../sueldo/?${id}&${gr.id}'>${toString(bruto)} €/año</a>)`
+        return `<a href="?${id}&${gr.id}">${prtGrupo(gr.id)}</a> (<a title='${toString(bruto, 2)} €/año' href='../sueldo/?${id}&${gr.id}'>${toString(bruto)} €/año</a>)`
     }));
   }
 
   addDd("nivel", p.nivel);
-  addDd("nivel", p.vacante?"Si":"No");
+  addDd("vacante", p.vacante?"Si":"No");
   addDd("cargo", p.cargo);
-  addDd("tipo", p.tipo);
-  addDd("provision", p.provision);
+  if (p.tipo == p.provision) {
+      addDd("tipoprovision", p.tipo);
+  } else {
+      addDd("tipo", p.tipo);
+      addDd("provision", p.provision);
+  }
   addDd("formacion", p.formacion);
   addDd("lugar", p.lugar);
-  addDd("administracion", p.administracion, ...p.organizacion.map(x=>x.txt))
+  addDd("administracion", p.administracion, ...p.organizacion.flatMap((x, i, arr)=>(i==0 || x.txt!=arr[i-1].txt)?x.txt:[]))
   addDd("cuerpo", ...p.cuerpo);
   addDd("observacion", ...p.observacion);
   addDd("titulacion", ...p.titulacion);

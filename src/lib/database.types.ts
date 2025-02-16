@@ -281,10 +281,10 @@ export type Database = {
           formacion: number | null
           id: number
           localidad: number
-          nivel: number | null
+          nivel: number
           provision: string | null
           tipo: string | null
-          unidad: number | null
+          unidad: number
           vacante: number
         }
         Insert: {
@@ -294,10 +294,10 @@ export type Database = {
           formacion?: number | null
           id: number
           localidad: number
-          nivel?: number | null
+          nivel: number
           provision?: string | null
           tipo?: string | null
-          unidad?: number | null
+          unidad: number
           vacante: number
         }
         Update: {
@@ -307,10 +307,10 @@ export type Database = {
           formacion?: number | null
           id?: number
           localidad?: number
-          nivel?: number | null
+          nivel?: number
           provision?: string | null
           tipo?: string | null
-          unidad?: number | null
+          unidad?: number
           vacante?: number
         }
         Relationships: [
@@ -414,6 +414,13 @@ export type Database = {
             referencedRelation: "puesto"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "puesto_cuerpo_puesto_fkey"
+            columns: ["puesto"]
+            isOneToOne: false
+            referencedRelation: "rpt"
+            referencedColumns: ["id"]
+          },
         ]
       }
       puesto_grupo: {
@@ -449,6 +456,13 @@ export type Database = {
             columns: ["puesto"]
             isOneToOne: false
             referencedRelation: "puesto"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "puesto_grupo_puesto_fkey"
+            columns: ["puesto"]
+            isOneToOne: false
+            referencedRelation: "rpt"
             referencedColumns: ["id"]
           },
         ]
@@ -488,6 +502,13 @@ export type Database = {
             referencedRelation: "puesto"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "puesto_observacion_puesto_fkey"
+            columns: ["puesto"]
+            isOneToOne: false
+            referencedRelation: "rpt"
+            referencedColumns: ["id"]
+          },
         ]
       }
       puesto_titulacion: {
@@ -516,6 +537,13 @@ export type Database = {
             columns: ["puesto"]
             isOneToOne: false
             referencedRelation: "puesto"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "puesto_titulacion_puesto_fkey"
+            columns: ["puesto"]
+            isOneToOne: false
+            referencedRelation: "rpt"
             referencedColumns: ["id"]
           },
           {
@@ -615,6 +643,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "puesto_localidad_fkey"
+            columns: ["localidad"]
+            isOneToOne: false
+            referencedRelation: "localidad"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "puesto_nivel_fkey"
             columns: ["nivel"]
             isOneToOne: false
@@ -674,6 +709,125 @@ export type Database = {
           min_especifico: number | null
         }
         Relationships: []
+      }
+      provision_tipo: {
+        Row: {
+          provision: string | null
+          tipo: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "puesto_provision_fkey"
+            columns: ["provision"]
+            isOneToOne: false
+            referencedRelation: "provision"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "puesto_tipo_fkey"
+            columns: ["tipo"]
+            isOneToOne: false
+            referencedRelation: "tipo_puesto"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rpt: {
+        Row: {
+          cargo: number | null
+          centro: number | null
+          grupo: string | null
+          id: number | null
+          localidad: number | null
+          ministerio: number | null
+          nivel: number | null
+          pais: number | null
+          provincia: number | null
+          provision: string | null
+          sueldo: number | null
+          tipo: string | null
+          unidad: number | null
+          vacante: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "centro_ministerio_fkey"
+            columns: ["ministerio"]
+            isOneToOne: false
+            referencedRelation: "ministerio"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "localidad_provincia_fkey"
+            columns: ["provincia"]
+            isOneToOne: false
+            referencedRelation: "provincia"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provincia_pais_fkey"
+            columns: ["pais"]
+            isOneToOne: false
+            referencedRelation: "pais"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "puesto_cargo_fkey"
+            columns: ["cargo"]
+            isOneToOne: false
+            referencedRelation: "cargo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "puesto_localidad_fkey"
+            columns: ["localidad"]
+            isOneToOne: false
+            referencedRelation: "localidad"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "puesto_nivel_fkey"
+            columns: ["nivel"]
+            isOneToOne: false
+            referencedRelation: "nivel"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "puesto_nivel_fkey"
+            columns: ["nivel"]
+            isOneToOne: false
+            referencedRelation: "nivel_complemento"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "puesto_provision_fkey"
+            columns: ["provision"]
+            isOneToOne: false
+            referencedRelation: "provision"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "puesto_tipo_fkey"
+            columns: ["tipo"]
+            isOneToOne: false
+            referencedRelation: "tipo_puesto"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "puesto_unidad_fkey"
+            columns: ["unidad"]
+            isOneToOne: false
+            referencedRelation: "unidad"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "unidad_centro_fkey"
+            columns: ["centro"]
+            isOneToOne: false
+            referencedRelation: "centro"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Functions: {

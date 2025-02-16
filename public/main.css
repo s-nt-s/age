@@ -23,6 +23,9 @@ th {
 table tbody tr:nth-child(even) {
   background-color: #ddd;
 }
+table tbody tr:hover {
+  background-color: gold;
+}
 td > p,
 th > p {
   margin-top: 7px;
@@ -191,4 +194,7 @@ dd {
 }
 select {
   min-width: max-content;
+}
+select:empty {
+  display: none;
 }

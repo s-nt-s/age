@@ -1,7 +1,8 @@
-import { fileURLToPath, URL } from 'node:url'
+import { fileURLToPath, URL } from "node:url";
 import { defineConfig, Plugin } from "vite";
 import { resolve } from "path";
 import { glob } from "glob";
+import posthtml from "posthtml";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -29,6 +30,52 @@ const injectHtmlFragments = (): Plugin => {
   };
 };
 
+const htmlRewritePlugin = (): Plugin => {
+  return {
+    name: "html-rewrite-plugin",
+    enforce: "post",
+    apply: "build",
+    generateBundle(_, bundle) {
+      Object.keys(bundle).forEach(async (fileName) => {
+        if (!fileName.endsWith(".html")) return;
+        const file = bundle[fileName];
+        if (!(file && "source" in file)) return;
+        let html = String(file.source);
+        const fileDir = path.dirname(fileName);
+
+        html = await modifyHtml(html, "/" + fileDir + "/");
+        file.source = html;
+      });
+    },
+  };
+};
+
+async function modifyHtml(html: string, fileDir: string): Promise<string> {
+  const d = posthtml().use((tree) => {
+    tree.match({ tag: "a" }, (node) => {
+      if (node.attrs == null) return node;
+      const href = node.attrs.href;
+      if (href == null || href.length == 0) return node;
+      if (/^https?:\/\//.test(href)) {
+        node.attrs.target = "_blank";
+        return node;
+      }
+      if (href.startsWith("/")) {
+        node.attrs.href = path.relative(fileDir, href).replace(/\\/g, "/");
+        if (href.endsWith("/") && !node.attrs.href.endsWith("/"))
+          node.attrs.href = node.attrs.href + "/";
+        if (node.attrs.href.startsWith("/"))
+          node.attrs.href = "." + node.attrs.href;
+        return node;
+      }
+      return node;
+    });
+    return tree;
+  });
+  const r = await d.process(html);
+  return r.html;
+}
+
 // Configuración de Vite
 export default defineConfig({
   base: "./",
@@ -37,10 +84,10 @@ export default defineConfig({
       input: index_html,
     },
   },
-  plugins: [injectHtmlFragments()],
+  plugins: [injectHtmlFragments(), htmlRewritePlugin()],
   resolve: {
     alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url))
-    }
-  }
+      "@": fileURLToPath(new URL("./src", import.meta.url)),
+    },
+  },
 });

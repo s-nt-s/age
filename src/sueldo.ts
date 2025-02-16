@@ -1,8 +1,7 @@
-import { toString, byId } from "./lib/util";
+import { toString } from "./lib/util";
 import { Form } from "./lib/form";
 import { AGE } from "./lib/age";
 import { Nomina, Ingreso } from "./lib/nomina";
-import { DB } from "./lib/supabaseClient.ts";
 import { MKQ, Q } from "./lib/Q";
 
 const CONFIG = {
@@ -32,18 +31,6 @@ class MyForm extends Form {
 }
 
 const F = new MyForm();
-
-function addEventListenerAndFire<
-  T extends HTMLElement,
-  K extends keyof HTMLElementEventMap
->(
-  node: T,
-  event: K,
-  fnc: (this: HTMLElement, ev?: HTMLElementEventMap[K]) => void
-): void {
-  node.addEventListener(event, fnc);
-  fnc.call(node);
-}
 
 function do_round(v: number) {
   if (isNaN(v) || v == Infinity) return "-";
@@ -124,7 +111,7 @@ async function _do_salary(silent: boolean) {
   const n = new Nomina({
     base: new Ingreso({ anual: d.base + d.trienios.base, pagas: 12 }),
     extra: new Ingreso({ mensual: d.extra + d.trienios.extra, pagas: 2 }),
-    destino: new Ingreso({ anual: d.destino, pagas: 14 }),
+    destino: new Ingreso({ anual: d.destino??undefined, pagas: 14 }),
     especifico: new Ingreso({ anual: d.especifico, pagas: 14 }),
     productividad: new Ingreso({ anual: d.productividad, pagas: 12 }),
     muface: d.muface,

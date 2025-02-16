@@ -1,4 +1,4 @@
-const __GRUPO__ = ["A1", "A2", "C1", "C2", "E", "B"];
+//const __GRUPO__ = ["A1", "A2", "C1", "C2", "E", "B"];
 
 type QVal = number|string|boolean
 type QType = { [key: string]: QVal };
@@ -23,7 +23,7 @@ export class MKQ {
       return [k, v];
     }
     if (pair.length!=1) throw "Bad query pair: "+item;
-    if (__GRUPO__.includes(k)) return ["grupo", k];
+    //if (__GRUPO__.includes(k)) return ["grupo", k];
     if (/^\d+$/.test(k)) return ["puesto", parseInt(k)];
     return [k, true];
   }
@@ -54,7 +54,7 @@ export class MKQ {
       return Object.entries(N).map(([k, v])=>{
         if (v==null) return k;
         if (typeof v == "string") {
-          if (k=="grupo" && __GRUPO__.includes(v)) return v;
+          //if (k=="grupo" && __GRUPO__.includes(v)) return v;
           if (k=="puesto" && /^\d+$/.test(v)) return v;
         }
         return encodeURIComponent(k) + "=" + (encodeURIComponent(v)).replace(/%20/g, '+')
@@ -66,10 +66,21 @@ export class MKQ {
   toString() {
     return MKQ.toString(this.Q);
   }
-  redirect() {
+  toQuery() {
     const new_qr = this.toString();
-    if (new_qr==null || this.qr==new_qr) return false;
-    window.location.search="?"+new_qr;
+    if (new_qr == null || new_qr.length==0) return '';
+    return '?'+new_qr;
+  }
+  redirect(soft?: boolean) {
+    const new_qr = this.toQuery();
+    if (window.location.search==new_qr) return false;
+    const url = new URL(window.location.href);
+    url.search=new_qr;
+    if (soft) {
+      window.history.replaceState({}, "", url.toString());
+    } else {
+      window.location.href=url.toString();
+    }
     console.log("REDIRECT:\n   "+this.qr+" -->\n   "+new_qr);
     return true;
   }
