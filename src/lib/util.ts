@@ -53,6 +53,17 @@ export function toNum(s: unknown) {
   return n;
 }
 
+export function sort<T extends string|number|{txt:string}>(a: T, b: T) {
+  if (typeof a == "number" && typeof b == "number") return a-b;
+  if (typeof a == "string" && typeof b == "string") return a.toLowerCase().localeCompare(b.toLowerCase());
+  if (typeof a == "object" && typeof b == "object") {
+    if (("txt" in a) && ("txt" in b)) {
+      return sort(a.txt, b.txt);
+    }
+  }
+  return 0;
+}
+
 
 export function toString(n: number, dec?: number) {
   if (dec == null) dec = 0;
@@ -67,4 +78,20 @@ export function toElement(html: string) {
   const parser = new DOMParser();
   const doc = parser.parseFromString(html, 'text/html');
   return doc.body.firstElementChild as HTMLElement;
+}
+
+
+export function byId<T extends HTMLElement>(type: new () => T, id: string): T | null {
+  const e = document.getElementById(id);
+  if (e==null) return null;
+  return e instanceof type ? e : null;
+};
+
+export function mapObject<T extends Record<string|number, any>, U>(
+  obj: T,
+  fn: (key: string|number, value: T[keyof T]) => U
+): Record<string, U> {
+  return Object.fromEntries(
+    Object.entries(obj).map(([key, value]) => [key, fn(key, value)]).filter(([k, v])=>v!=null)
+  );
 }

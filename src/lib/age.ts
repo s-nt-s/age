@@ -1,11 +1,10 @@
 import { DB } from './supabaseClient'
 import type { TableName, TableColumn } from './supabaseClient'
 import type { Tables } from "./database.types";
-import { toNum } from './util'
+import { byId } from './util'
 
 
 class Age {
-    static eventDataContentLoaded = "DATAContentLoaded"
     readonly mei;
 
     constructor() {
@@ -30,9 +29,34 @@ class Age {
         }
     }
 
-    async getPuesto(idPuesto: string|number) {
-        const id = toNum(idPuesto);
-        if (id == null) return null;
+    async getFuentes(toDom: boolean) {
+        const arr = await DB.all("fuente")
+        arr.push({
+            id: "MEI",
+            fuente: this.mei.fuente,
+            via: this.mei.fuente,
+            fecha: this.mei.fecha
+        });
+        if (toDom) this.setFuentes(arr);
+        return arr;
+    }
+    setFuentes(fuente: Tables<"fuente">[]) {
+        fuente.forEach((i) => {
+          const a1 = byId(HTMLAnchorElement, i.id.toLowerCase() + "_url");
+          const a2 = byId(HTMLAnchorElement, i.id.toLowerCase() + "_via");
+          const a = a1 || a2;
+          if (a1) a1.href = i.fuente;
+          if (a2) a2.href = i.via;
+          if (a != null) {
+            const t = (a.title || "").trim();
+            if (t.length == 0) a.title = "Datos de " + i.fecha;
+            else a.title = t + " (datos de " + i.fecha + ")";
+          }
+        });
+    }
+
+    async getPuesto(id: number) {
+        if (id == null || isNaN(id)) return null;
         const [p, g]
         = await Promise.all([
             DB.get_one("puesto", id),
@@ -45,9 +69,35 @@ class Age {
         return puesto;
     }
 
-    async getFullPuesto(idPuesto: number) {
-        const id = toNum(idPuesto);
-        if (id == null) return null;
+    async getNiveles() {
+        const nvl = await DB.all("nivel_complemento");
+        if (nvl[0].min_especifico == null) nvl[0].min_especifico = 0;
+        if (nvl[nvl.length-1].max_especifico == null) nvl[nvl.length-1].max_especifico = Infinity;
+        nvl.forEach((n, x)=>{
+            if (n.min_especifico == null) n.min_especifico = nvl[x-1].max_especifico;
+            if (n.max_especifico == null) n.max_especifico = nvl[x+1].min_especifico;
+        })
+        return Object.fromEntries(nvl.map(n=>[n.id!, n]));
+    }
+
+    async getGrupoNivel() {
+        const [gr, gn]
+        = await Promise.all([
+            DB.all("grupo"),
+            DB.all("grupo_nivel")
+        ]);
+        return Object.fromEntries(
+            gr.map(g=>[
+                g.id, {
+                    ...g,
+                    nivel: gn.flatMap(n=>n.grupo==g.id && n.nivel!=null?n.nivel:[])
+                }
+            ])
+        )
+    }
+
+    async getFullPuesto(id: number) {
+        if (id==null || isNaN(id)) return null;
         const p = await this.__getFullPuesto(id);
 
         const __toArr = (v: string|null) => (v||'').split(/\t/).filter(x=>x.length>0);

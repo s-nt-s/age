@@ -3,7 +3,7 @@ const __GRUPO__ = ["A1", "A2", "C1", "C2", "E", "B"];
 type QVal = number|string|boolean
 type QType = { [key: string]: QVal };
 
-class MKQ {
+export class MKQ {
   private qr = '';
   private Q: QType = {}
 

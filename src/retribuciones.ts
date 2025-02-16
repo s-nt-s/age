@@ -21,29 +21,44 @@ document.addEventListener("DOMContentLoaded", async () => {
   f.querySelector("span")!.textContent = r.fecha;
 
   toTable(
-    ["Grupo", "Base", "Trienio", "Extra<br/>base", "Extra<br/>trienio", `<a title='Cotización Muface' href="${m.fuente}">Muface</a>`],
+    [
+      [
+        "<th rowspan='2'>Grupo</th>",
+        "<th colspan='2'>Base</th>",
+        "<th colspan='2'>Extra</th>",
+        `<th rowspan='2'><a title='Cotización Muface' href="${m.fuente}">Muface</a></th>`,
+      ],
+      ["Sueldo", "Trienio", "Sueldo", "Trienio"]
+    ],
     g,
     (i: Tables<"grupo">) => [i.id, i.base, i.trienio, i.extra_base, i.extra_trienio, i.muface_cotizacion]
   );
 
   toTable(
-    ["Nivel", "Complemento<br/>destino"],
+    [["Nivel", "Complemento<br/>destino"]],
     n,
-    (i: Tables<"nivel">) => [i.id, i.destino,]
+    (i: Tables<"nivel">) => [i.id, i.destino]
   );
 
   showMain();
 });
-function toTable<N extends TableName, T extends Tables<N>>(head: string[], rows: T[], toRow: (i: T) => (string|number|null)[]) {
+function toTable<N extends TableName, T extends Tables<N>>(head: string[][], rows: T[], toRow: (i: T) => (string|number|null)[]) {
   const table = [
     "<table>",
-    "<thead><tr><th>" + head.join("</th><th>") + "</th></tr></thead>",
-    "<tbody>"
+    "<thead>"
   ];
+  head.forEach(h=>{
+    table.push("<tr>" + h.map(t=>/^<th/.test(t)?t:`<th>${t}</th>`).join("") + "</tr>")
+  })
+  table.push("</thead>");
+  table.push("</tbody>");
   rows.forEach(r=>{
     const _row = toRow(r).map(x=>{
       if (x==null) return '<td></td>';
-      if (typeof x == "string") return '<td>'+x+'</td>';
+      if (typeof x == "string") {
+        if (/^<td/.test(x)) return x;
+        return '<td>'+x+'</td>';
+      }
       return `<td style='text-align: right' title='${toString(x, 2)}'>${toString(x)}</td>`
     }).join('');
     table.push("<tr>" + _row + "</tr>")

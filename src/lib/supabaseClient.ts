@@ -35,6 +35,17 @@ export class Db {
   async all<T extends TableName>(table: T) {
     return this.get(table);
   }
+  async dct<T extends TableName>(table: T) {
+    const arr = await this.get(table);
+    const kv = arr.map(t=>{
+      if (!("id" in t)) return null;
+      const k = t.id;
+      if (typeof k == "string") return [k, t as Tables<T>];
+      if (typeof k == "number") return [k, t as Tables<T>];
+      return null;
+    }).filter(x=>x!=null) as [string|number, Tables<T>][];
+    return Object.fromEntries(kv);
+  }
 
   private from(t: TableName) {
     return this.db.from(<_TableName>t);
