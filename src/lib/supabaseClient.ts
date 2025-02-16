@@ -22,7 +22,7 @@ export class Db {
     this.onerror = onerror;
   }
 
-  private get_data(log: string, obj: PostgrestSingleResponse<any[]>) {
+  get_data(log: string, obj: PostgrestSingleResponse<any[]>) {
     if (obj.error) {
       console.error(log, obj);
       if (this.onerror) this.onerror(obj.error);
@@ -47,7 +47,7 @@ export class Db {
     return Object.fromEntries(kv);
   }
 
-  private from(t: TableName) {
+  public from(t: TableName) {
     return this.db.from(<_TableName>t);
   }
 
@@ -79,12 +79,7 @@ export class Db {
     const field = (fieldName ?? "*").toString();
     const where_field = where_fieldName==undefined?undefined:where_fieldName.toString();
     const table_field = table + "." + field;
-    let prm = this.from(table).select(field);
-    if (where_field != undefined) {
-      if (arr.length == 1) prm = prm.eq(where_field, arr[0]);
-      else if (arr.length > 1) prm = prm.in(where_field, arr);
-    }
-    if (field != '*') prm = prm.order(field, { ascending: true });
+    const prm = this.__buildSelectWhere(table, fieldName, where_fieldName, ...arr);
     const r = <Tables<T>[]>(
       this.get_data(
         arr.length == 0 ? table_field : `${table_field}[${where_field}=${arr}]`,
@@ -102,6 +97,43 @@ export class Db {
     return r;
   }
 
+  private __unpackWhereArg(v: number|string): [string, number]|null {
+    if (typeof v != "string") return null;
+    const m = v.match(/^(<|>|<=|>=)(\d+)$/);
+    if (m == null) return null;
+    const n = parseInt(m[2]);
+    if (n==null) return null;
+    return [m[1], n]
+  }
+
+  private __buildSelectWhere<T extends TableName, C extends TableColumn<T>>(
+    table: T,
+    fieldName?: C,
+    where_fieldName?: C,
+    ...arr: (number | string)[]
+  ) {
+    const field = (fieldName ?? "*").toString();
+    const where_field = where_fieldName==undefined?undefined:where_fieldName.toString();
+    let prm = this.from(table).select(field);
+    if (where_field != undefined && arr.length > 0) {
+      const _in_ = [] as typeof arr;
+      arr.forEach(a=>{
+        const unpack = this.__unpackWhereArg(a);
+        if (unpack == null) return _in_.push(a);
+        const [s, v] = unpack;
+        if (s==">") return (prm=prm.gt(where_field, v));
+        if (s=="<") return (prm=prm.lt(where_field, v));
+        if (s=="<=") return (prm=prm.lte(where_field, v));
+        if (s==">=") return (prm=prm.gte(where_field, v));
+        throw "Bad argument: "+s;
+      })
+      if (_in_.length == 1) prm = prm.eq(where_field, _in_[0]);
+      else if (_in_.length > 1) prm = prm.in(where_field, _in_);
+    }
+    if (field != '*') prm = prm.order(field, { ascending: true });
+    return prm;
+  }
+
   async get_one<T extends TableName>(table: T, id: number | string) {
     const r = <Tables<T>[]>await this.selectTableWhere(table, "id" as TableColumn<T>, id);
     if (r.length == 1) return r[0];
@@ -116,6 +148,42 @@ export class Db {
   async get<T extends TableName>(table: T, ...ids: (number | string)[]) {
     return <Tables<T>[]>await this.selectTableWhere(table, "id" as TableColumn<T>, ...ids);
   }
+
+  private async __minmax<T extends TableName, C extends TableColumn<T>>(
+    ascending: boolean,
+    table: T,
+    field: C,
+    where_fieldName?: C,
+    ...arr: (number | string)[]
+  ): Promise<Tables<T>[C]>{
+    const table_field = table + "." + field.toString();
+    const prm = this.__buildSelectWhere(table, field, where_fieldName, ...arr)
+      .order(field.toString(), { ascending: ascending }).limit(1)
+
+    const log = arr.length == 0 || !where_fieldName? table_field : `${table_field}[${where_fieldName.toString()}=${arr}]`;
+    const val = this.get_data(
+      `${ascending?'min':'max'}(${log})`,
+      await prm
+    )[0];
+    return val[field];
+  }
+  async min<T extends TableName, C extends TableColumn<T>>(
+    table: T,
+    field: C,
+    where_fieldName?: C,
+    ...arr: (number | string)[]
+  ) {
+    return await this.__minmax(true, table, field, where_fieldName, ...arr);
+  }
+  async max<T extends TableName, C extends TableColumn<T>>(
+    table: T,
+    field: C,
+    where_fieldName?: C,
+    ...arr: (number | string)[]
+  ) {
+    return await this.__minmax(false, table, field, where_fieldName, ...arr);
+  }
 }
 
 export const DB = new Db();
+

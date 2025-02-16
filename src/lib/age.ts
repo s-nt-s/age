@@ -6,6 +6,7 @@ import { byId } from './util'
 
 class Age {
     readonly mei;
+    private __minnivel: number|undefined;
 
     constructor() {
         const mei = (()=>{
@@ -70,7 +71,10 @@ class Age {
     }
 
     async getNiveles() {
-        const nvl = await DB.all("nivel_complemento");
+        if (this.__minnivel==undefined) {
+            this.__minnivel = await DB.min("puesto", "nivel");
+        }
+        const nvl = await DB.selectTableWhere("nivel_complemento", "id", ">="+this.__minnivel);
         if (nvl[0].min_especifico == null) nvl[0].min_especifico = 0;
         if (nvl[nvl.length-1].max_especifico == null) nvl[nvl.length-1].max_especifico = Infinity;
         nvl.forEach((n, x)=>{
@@ -86,7 +90,7 @@ class Age {
             DB.all("grupo"),
             DB.all("grupo_nivel")
         ]);
-        return Object.fromEntries(
+        const obj = Object.fromEntries(
             gr.map(g=>[
                 g.id, {
                     ...g,
@@ -94,6 +98,7 @@ class Age {
                 }
             ])
         )
+        return obj;
     }
 
     async getFullPuesto(id: number) {
@@ -141,11 +146,17 @@ class Age {
             DB.get_one("pais", provincia!.pais),
             DB.get_one("ministerio", centro!.ministerio)
         ]);
+        let grupo = __toArr(p.grupo);
+        const singrupo = grupo.length==0;
+        if (grupo.length == 0 && p.nivel!=null) {
+            grupo = <string[]>await DB.selectColumnWhere("grupo_nivel", "grupo", "nivel", p.nivel);
+        }
 
         const full = {
             ...p,
+            singrupo: singrupo,
             id: p.id!,
-            grupo: __toArr(p.grupo),
+            grupo: grupo,
             cuerpo: cuerpo,
             observacion: observacion,
             titulacion: titulacion,

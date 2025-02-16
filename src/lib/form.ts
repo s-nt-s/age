@@ -14,6 +14,20 @@ class FData {
     const v = this.get(k);
     return (typeof v == "string")?v:'';
   }
+  getArr(k: string, tp: string) {
+    const v = this.get(k);
+    if (!Array.isArray(v)) return [];
+    for (let i=0; i<v.length; i++) {
+      if (typeof v[i] != tp) return [];
+    }
+    return v;
+  }
+  getNumArr(k: string) {
+    return this.getArr(k, "number") as number[];
+  }
+  getStrArr(k: string) {
+    return this.getArr(k, "string") as string[];
+  }
 }
 
 type HTMLNameElement = (HTMLSelectElement|HTMLInputElement|HTMLTextAreaElement);
@@ -51,12 +65,15 @@ export class Form {
 
   getData() {
     const obj: { [key: string]: string | number | (string | number)[] } = {};
+    const isArr = this.inputs.flatMap(e=>{
+      return ((e instanceof HTMLSelectElement) && e.multiple)?e.name:[];
+    })
     Array.from(new FormData(this.form)).forEach(([k, _v]) => {
       const v = this.__toVal(_v);
       if (v == null) return;
       const pre = obj[k];
       if (pre == null) {
-        obj[k] = v;
+        obj[k] = isArr.includes(k)?[v]:v;
         return;
       }
       if (Array.isArray(pre)) {

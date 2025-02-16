@@ -1,5 +1,6 @@
 import { DB, TableName } from "./lib/supabaseClient.ts";
 import { getDom, toString } from "./lib/util.ts";
+import { AGE } from "./lib/age";
 import type { Tables } from "./lib/database.types";
 
 function showMain() {
@@ -11,7 +12,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     DB.get_one("fuente", "Retribuciones"),
     DB.get_one("fuente", "Muface"),
     DB.all("grupo"),
-    DB.all("nivel"),
+    AGE.getNiveles(),
   ]);
   const f = document.getElementById("fuente")!;
   const [a1, a2] = f.querySelectorAll("a");
@@ -36,7 +37,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   toTable(
     [["Nivel", "Complemento<br/>destino"]],
-    n,
+    Object.values(n) as Tables<"nivel">[],
     (i: Tables<"nivel">) => [i.id, i.destino]
   );
 

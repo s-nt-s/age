@@ -4,46 +4,6 @@ export function getDom(url: string): string {
   return dom.replace(/^www\./, "");
 }
 
-export function cache<T extends (...args: unknown[]) => unknown>(
-  target: unknown,
-  key: string,
-  descriptor: PropertyDescriptor
-) {
-  const originalMethod = descriptor.value;
-  const cacheMap = new Map<string, unknown>();
-
-  descriptor.value = function (...args: unknown[]) {
-    const cacheKey = JSON.stringify(args);
-    if (cacheMap.has(cacheKey)) return cacheMap.get(cacheKey);
-
-    const result = originalMethod.apply(this, args);
-    cacheMap.set(cacheKey, result);
-    return result;
-  };
-
-  return descriptor;
-}
-
-export function cacheAsync<T extends (...args: unknown[]) => Promise<unknown>>(
-  target: unknown,
-  key: string,
-  descriptor: PropertyDescriptor
-) {
-  const originalMethod = descriptor.value;
-  const cacheMap = new Map<string, unknown>();
-
-  descriptor.value = async function (...args: unknown[]) {
-    const cacheKey = JSON.stringify(args);
-    if (cacheMap.has(cacheKey)) return cacheMap.get(cacheKey);
-
-    const result = await originalMethod.apply(this, args);
-    cacheMap.set(cacheKey, result);
-    return result;
-  };
-
-  return descriptor;
-}
-
 export function toNum(s: unknown) {
   if (s == null) return null;
   if (typeof s === "number") return s;
@@ -53,11 +13,20 @@ export function toNum(s: unknown) {
   return n;
 }
 
-export function sort<T extends string|number|{txt:string}>(a: T, b: T) {
-  if (typeof a == "number" && typeof b == "number") return a-b;
+export function sort<T extends string|number|{txt:string}>(a: T, b: T): number {
+  if (typeof a == "number" && typeof b == "number") {
+    if (isNaN(a) && isNaN(b)) return 0;
+    if (isNaN(a)) return -Infinity;
+    if (isNaN(b)) return Infinity;
+    return a-b;
+  }
   if (typeof a == "string" && typeof b == "string") return a.toLowerCase().localeCompare(b.toLowerCase());
   if (typeof a == "object" && typeof b == "object") {
     if (("txt" in a) && ("txt" in b)) {
+      if (("id" in a) && ("id" in b) && (typeof a.id == "number" && typeof b.id == "number")) {
+        const c = sort(a.id, b.id);
+        if ([Infinity, -Infinity].includes(c)) return c;
+      }
       return sort(a.txt, b.txt);
     }
   }
@@ -81,10 +50,15 @@ export function toElement(html: string) {
 }
 
 
-export function byId<T extends HTMLElement>(type: new () => T, id: string): T | null {
+export function byId<T extends HTMLElement>(type: new () => T, id: string, thrw?: boolean): T | null {
   const e = document.getElementById(id);
-  if (e==null) return null;
-  return e instanceof type ? e : null;
+  if (e==null) {
+    if (thrw) throw `${id} not exists`;
+    return null;
+  }
+  if (e instanceof type) return e;
+  if (thrw) throw `${id} is not a ${type}`;
+  return null;
 };
 
 export function mapObject<T extends Record<string|number, any>, U>(
@@ -92,6 +66,6 @@ export function mapObject<T extends Record<string|number, any>, U>(
   fn: (key: string|number, value: T[keyof T]) => U
 ): Record<string, U> {
   return Object.fromEntries(
-    Object.entries(obj).map(([key, value]) => [key, fn(key, value)]).filter(([k, v])=>v!=null)
+    Object.entries(obj).map(([key, value]) => [key, fn(key, value)]).filter(([_, v])=>v!=null)
   );
 }

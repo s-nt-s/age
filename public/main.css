@@ -192,3 +192,6 @@ dd {
 select {
   min-width: max-content;
 }
+select:empty {
+  display: none;
+}
