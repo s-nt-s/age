@@ -9,7 +9,7 @@ type IdTxt = {id: string|number; txt: string};
 
 function doOptions<T extends string|number|IdTxt>(id: string, arr: T[]) {
   let w = 0;
-  const e = byId(HTMLSelectElement, id)!;
+  const e = byId(HTMLElement, id)!;
   const toObj = (x: T):IdTxt => {
     if (typeof x == "string") return {id:x, txt:x};
     if (typeof x == "number") return {id:x, txt:x.toString()};
@@ -60,37 +60,25 @@ const doMain = async function () {
     grupo,
     nivel,
     ministerio,
-    centro,
-    unidad,
     pais,
     provincia,
-    localidad,
     provision
   ] = await Promise.all([
     AGE.getFuentes(true),
     DB.all("grupo"),
     DB.all("nivel"),
     DB.get("ministerio"),
-    DB.get("centro"),
-    DB.get("unidad"),
     DB.get("pais"),
     DB.get("provincia"),
-    DB.get("localidad"),
     DB.get("provision")
   ]);
-
-  const toIdTxt = <T extends IdTxt>(x:T):IdTxt => {return {id: x.id, txt: x.txt}};
-  const organismo:[IdTxt, IdTxt[]][] = ministerio.map((p)=>{
-    return [
-      toIdTxt(p),
-      centro.flatMap((i)=>{
-        if (i.ministerio!=p.id) return [];
-        if (i.id>0) return toIdTxt(i);
-        return unidad.flatMap(x=>x.centro==i.id?toIdTxt(x):[]);
-      })
-    ]
+  const prv = provincia.flatMap(i=>{
+    if (i.id>0) return [];
+    return i.id
   })
-  const lugar:[IdTxt, IdTxt[]][] = pais.map((p)=>{
+  const localidad = await DB.selectTableWhere("localidad", "provincia", ...prv);
+  const toIdTxt = <T extends IdTxt>(x:T):IdTxt => {return {id: x.id, txt: x.txt}};
+  const lugar: [IdTxt, IdTxt[]][] = pais.map((p)=>{
     return [
       toIdTxt(p),
       provincia.flatMap((i)=>{
@@ -103,9 +91,12 @@ const doMain = async function () {
 
   doOptions("grupo", grupo.map(n=>n.id));
   doOptions("nivel", nivel.map(n=>n.id));
-  doOptionsGroups("organismo", organismo);
+  doOptions("organismo", ministerio);
+  //doOptionsGroups("organismo", organismo);
   doOptionsGroups("lugar", lugar);
   doOptions("provision", provision);
 
-  document.body.classList.remove("loading");
+  document.body.classList.add("loaded");
 }
+
+document.addEventListener("DOMContentLoaded", doMain);
