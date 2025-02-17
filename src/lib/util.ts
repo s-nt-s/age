@@ -4,46 +4,6 @@ export function getDom(url: string): string {
   return dom.replace(/^www\./, "");
 }
 
-export function cache<T extends (...args: unknown[]) => unknown>(
-  target: unknown,
-  key: string,
-  descriptor: PropertyDescriptor
-) {
-  const originalMethod = descriptor.value;
-  const cacheMap = new Map<string, unknown>();
-
-  descriptor.value = function (...args: unknown[]) {
-    const cacheKey = JSON.stringify(args);
-    if (cacheMap.has(cacheKey)) return cacheMap.get(cacheKey);
-
-    const result = originalMethod.apply(this, args);
-    cacheMap.set(cacheKey, result);
-    return result;
-  };
-
-  return descriptor;
-}
-
-export function cacheAsync<T extends (...args: unknown[]) => Promise<unknown>>(
-  target: unknown,
-  key: string,
-  descriptor: PropertyDescriptor
-) {
-  const originalMethod = descriptor.value;
-  const cacheMap = new Map<string, unknown>();
-
-  descriptor.value = async function (...args: unknown[]) {
-    const cacheKey = JSON.stringify(args);
-    if (cacheMap.has(cacheKey)) return cacheMap.get(cacheKey);
-
-    const result = await originalMethod.apply(this, args);
-    cacheMap.set(cacheKey, result);
-    return result;
-  };
-
-  return descriptor;
-}
-
 export function toNum(s: unknown) {
   if (s == null) return null;
   if (typeof s === "number") return s;
@@ -92,6 +52,6 @@ export function mapObject<T extends Record<string|number, any>, U>(
   fn: (key: string|number, value: T[keyof T]) => U
 ): Record<string, U> {
   return Object.fromEntries(
-    Object.entries(obj).map(([key, value]) => [key, fn(key, value)]).filter(([k, v])=>v!=null)
+    Object.entries(obj).map(([key, value]) => [key, fn(key, value)]).filter(([_, v])=>v!=null)
   );
 }

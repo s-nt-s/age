@@ -1,8 +1,6 @@
-import { Form } from './lib/form'
-import { sort, toString, byId } from './lib/util'
+import { sort, byId } from './lib/util'
 import { AGE } from './lib/age'
-import { DB, TableName } from "./lib/supabaseClient.ts";
-import type { Tables } from "./lib/database.types";
+import { DB } from "./lib/supabaseClient.ts";
 
 type IdTxt = {id: string|number; txt: string};
 
