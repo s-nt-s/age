@@ -65,6 +65,7 @@ function modifyHtml(html: string, fileDir: string): string {
           node.attrs.href = path.relative(fileDir, href).replace(/\\/g, "/");
           if (href.endsWith("/") && !node.attrs.href.endsWith("/"))
             node.attrs.href = node.attrs.href + "/";
+          if (node.attrs.href.startsWith("/")) node.attrs.href = '.'+node.attrs.href;
           return node;
         }
         return node;
