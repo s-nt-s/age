@@ -2,6 +2,7 @@ import { fileURLToPath, URL } from 'node:url'
 import { defineConfig, Plugin } from "vite";
 import { resolve } from "path";
 import { glob } from "glob";
+import posthtml from 'posthtml';
 import * as fs from "fs";
 import * as path from "path";
 
@@ -29,6 +30,52 @@ const injectHtmlFragments = (): Plugin => {
   };
 };
 
+const htmlRewritePlugin = (): Plugin => {
+  return {
+    name: 'html-rewrite-plugin',
+    enforce: 'post',
+    apply: 'build',
+    generateBundle(_, bundle) {
+      Object.keys(bundle).forEach((fileName) => {
+        if (!fileName.endsWith('.html')) return;
+          const file = bundle[fileName];
+          if (!(file && 'source' in file)) return;
+          let html = String(file.source);
+          const fileDir = path.dirname(fileName);
+          
+          html = modifyHtml(html, '/'+fileDir+'/');
+          file.source = html;
+      });
+    },
+  };
+}
+
+function modifyHtml(html: string, fileDir: string): string {
+     const d = posthtml()
+    .use((tree) => {
+      tree.match({ tag: 'a' }, (node) => {
+        if (node.attrs == null) return node;
+        const href = node.attrs.href;
+        if (href == null || href.length==0) return node;
+        if (/^https?:\/\//.test(href)) {
+          node.attrs.target = '_blank';
+          return node;
+        }
+        if (href.startsWith('/')) {
+          node.attrs.href = path.relative(fileDir, href).replace(/\\/g, '/');
+          if (href.endsWith("/") && !node.attrs.href.endsWith("/"))
+            node.attrs.href = node.attrs.href +'/'
+          return node;
+        }
+        return node;
+      });
+      return tree;
+    })
+    .process(html, { sync: true });
+    return d.html;
+}
+
+
 // Configuración de Vite
 export default defineConfig({
   base: "./",
@@ -37,7 +84,7 @@ export default defineConfig({
       input: index_html,
     },
   },
-  plugins: [injectHtmlFragments()],
+  plugins: [injectHtmlFragments(), htmlRewritePlugin()],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url))
