@@ -63,16 +63,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     return t + " (" + [gr, n?.id].filter((x) => x != null).join(" ") + ")";
   })();
   document.getElementById("main")!.innerHTML = html;
+  const prtGrupo = (gid:string) => p.singrupo?`<span title='El grupo no aparece en la RPT, este valor se ha inferido a traves del nivel'>¿${gid}?</span>`:gid;
   addDd("puesto", p.id);
   if (g.length==1) {
     const gr = g[0];
-    addDd("grupo", gr.id);
+    addDd("grupo", prtGrupo(gr.id));
     const bruto = Nomina.getBrutoAnual(gr.base, gr.extra_base, (n?n.destino:0), p.especifico??0)
     addDd("sueldo", `<a title='${toString(bruto, 2)} €/año' href='../sueldo/?${id}&${gr.id}'>${toString(bruto)} €/año</a>`);
   } else {
     addDd("grupo", ...g.map(gr=>{
         const bruto = Nomina.getBrutoAnual(gr.base, gr.extra_base, (n?n.destino:0), p.especifico??0)
-        return `<a href="?${id}&${gr.id}">${gr.id}</a> (<a title='${toString(bruto, 2)} €/año' href='../sueldo/?${id}&${gr.id}'>${toString(bruto)} €/año</a>)`
+        return `<a href="?${id}&${gr.id}">${prtGrupo(gr.id)}</a> (<a title='${toString(bruto, 2)} €/año' href='../sueldo/?${id}&${gr.id}'>${toString(bruto)} €/año</a>)`
     }));
   }
 

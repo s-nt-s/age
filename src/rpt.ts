@@ -58,15 +58,13 @@ const doMain = async function () {
   const [
     _,
     grupo,
-    nivel,
     ministerio,
     pais,
     provincia,
     provision
   ] = await Promise.all([
     AGE.getFuentes(true),
-    DB.all("grupo"),
-    DB.all("nivel"),
+    AGE.getGrupoNivel(),
     DB.get("ministerio"),
     DB.get("pais"),
     DB.get("provincia"),
@@ -88,9 +86,12 @@ const doMain = async function () {
       })
     ]
   })
-
-  doOptions("grupo", grupo.map(n=>n.id));
-  doOptions("nivel", nivel.map(n=>n.id));
+  const nivel:Set<number> = new Set();
+  Object.values(grupo).forEach(g=>{
+    g.nivel.forEach(n=>nivel.add(n))
+  })
+  doOptions("grupo", Object.keys(grupo));
+  doOptions("nivel", [...nivel].sort());
   doOptions("organismo", ministerio);
   //doOptionsGroups("organismo", organismo);
   doOptionsGroups("lugar", lugar);

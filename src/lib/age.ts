@@ -141,11 +141,17 @@ class Age {
             DB.get_one("pais", provincia!.pais),
             DB.get_one("ministerio", centro!.ministerio)
         ]);
+        let grupo = __toArr(p.grupo);
+        const singrupo = grupo.length==0;
+        if (grupo.length == 0 && p.nivel!=null) {
+            grupo = <string[]>await DB.selectColumnWhere("grupo_nivel", "grupo", "nivel", p.nivel);
+        }
 
         const full = {
             ...p,
+            singrupo: singrupo,
             id: p.id!,
-            grupo: __toArr(p.grupo),
+            grupo: grupo,
             cuerpo: cuerpo,
             observacion: observacion,
             titulacion: titulacion,
