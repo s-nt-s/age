@@ -4,7 +4,13 @@ import { Q } from "./lib/Q.ts";
 import { Nomina } from './lib/nomina'
 import { toString } from './lib/util'
 
-const BASE_URL = import.meta.env.BASE_URL;
+const homelink = (()=>{
+  const home = document.getElementById("homelink");
+  if (!(home instanceof HTMLAnchorElement)) return '';
+  const href = home.href;
+  if (href==null || href.length==0) return '';
+  return href.replace(/\/$/, "");
+})();
 
 function getGrupos(p: Awaited<ReturnType<typeof AGE.getFullPuesto>>) {
   if (p == null) return [];
@@ -49,7 +55,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const p = await AGE.getFullPuesto(id);
   if (p == null) throw `Puesto ${id} no encontrado`;
   const [html, g, n] = await Promise.all([
-    fetch(`${BASE_URL}puesto.html`).then(r=>r.text()),
+    fetch(`${homelink}/puesto.html`).then(r=>r.text()),
     DB.get("grupo", ...getGrupos(p)),
     DB.safe_get_one("nivel", p.nivel),
   ]);

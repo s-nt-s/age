@@ -36,44 +36,44 @@ const htmlRewritePlugin = (): Plugin => {
     enforce: "post",
     apply: "build",
     generateBundle(_, bundle) {
-      Object.keys(bundle).forEach((fileName) => {
+      Object.keys(bundle).forEach(async (fileName) => {
         if (!fileName.endsWith(".html")) return;
         const file = bundle[fileName];
         if (!(file && "source" in file)) return;
         let html = String(file.source);
         const fileDir = path.dirname(fileName);
 
-        html = modifyHtml(html, "/" + fileDir + "/");
+        html = await modifyHtml(html, "/" + fileDir + "/");
         file.source = html;
       });
     },
   };
 };
 
-function modifyHtml(html: string, fileDir: string): string {
-  const d = posthtml()
-    .use((tree) => {
-      tree.match({ tag: "a" }, (node) => {
-        if (node.attrs == null) return node;
-        const href = node.attrs.href;
-        if (href == null || href.length == 0) return node;
-        if (/^https?:\/\//.test(href)) {
-          node.attrs.target = "_blank";
-          return node;
-        }
-        if (href.startsWith("/")) {
-          node.attrs.href = path.relative(fileDir, href).replace(/\\/g, "/");
-          if (href.endsWith("/") && !node.attrs.href.endsWith("/"))
-            node.attrs.href = node.attrs.href + "/";
-          if (node.attrs.href.startsWith("/")) node.attrs.href = '.'+node.attrs.href;
-          return node;
-        }
+async function modifyHtml(html: string, fileDir: string): Promise<string> {
+  const d = posthtml().use((tree) => {
+    tree.match({ tag: "a" }, (node) => {
+      if (node.attrs == null) return node;
+      const href = node.attrs.href;
+      if (href == null || href.length == 0) return node;
+      if (/^https?:\/\//.test(href)) {
+        node.attrs.target = "_blank";
         return node;
-      });
-      return tree;
-    })
-    .process(html, { sync: true });
-  return d.html;
+      }
+      if (href.startsWith("/")) {
+        node.attrs.href = path.relative(fileDir, href).replace(/\\/g, "/");
+        if (href.endsWith("/") && !node.attrs.href.endsWith("/"))
+          node.attrs.href = node.attrs.href + "/";
+        if (node.attrs.href.startsWith("/"))
+          node.attrs.href = "." + node.attrs.href;
+        return node;
+      }
+      return node;
+    });
+    return tree;
+  });
+  const r = await d.process(html);
+  return r.html;
 }
 
 // Configuración de Vite
