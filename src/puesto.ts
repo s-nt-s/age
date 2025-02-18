@@ -86,8 +86,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   addDd("nivel", p.nivel);
   addDd("vacante", p.vacante?"Si":"No");
   addDd("cargo", p.cargo);
-  addDd("tipo", p.tipo);
-  addDd("provision", p.provision);
+  if (p.tipo == p.provision) {
+      addDd("tipoprovision", p.tipo);
+  } else {
+      addDd("tipo", p.tipo);
+      addDd("provision", p.provision);
+  }
   addDd("formacion", p.formacion);
   addDd("lugar", p.lugar);
   addDd("administracion", p.administracion, ...p.organizacion.flatMap((x, i, arr)=>(i==0 || x.txt!=arr[i-1].txt)?x.txt:[]))
