@@ -84,13 +84,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   addDd("nivel", p.nivel);
-  addDd("nivel", p.vacante?"Si":"No");
+  addDd("vacante", p.vacante?"Si":"No");
   addDd("cargo", p.cargo);
   addDd("tipo", p.tipo);
   addDd("provision", p.provision);
   addDd("formacion", p.formacion);
   addDd("lugar", p.lugar);
-  addDd("administracion", p.administracion, ...p.organizacion.map(x=>x.txt))
+  addDd("administracion", p.administracion, ...p.organizacion.flatMap((x, i, arr)=>(i==0 || x.txt!=arr[i-1].txt)?x.txt:[]))
   addDd("cuerpo", ...p.cuerpo);
   addDd("observacion", ...p.observacion);
   addDd("titulacion", ...p.titulacion);
