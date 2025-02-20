@@ -3,8 +3,6 @@ import { AGE } from './lib/age'
 import { DB } from "./lib/supabaseClient.ts";
 import type { TableName } from './lib/supabaseClient'
 import { Form } from "./lib/form";
-import { asyncCache } from './lib/cache.ts';
-import { MKQ, Q } from "./lib/Q";
 
 const DEF_PAIS = 724;
 const DEV_PROV = 28;
@@ -133,7 +131,7 @@ function doOptionsGroups(id: string, group: [IdTxt, IdTxt[]][]) {
 const doMain = async function () {
   const [
     _,
-    grupo,
+    subgrupo,
     ministerio,
     pais,
     provision,
@@ -147,13 +145,17 @@ const doMain = async function () {
     DB.get("tipo_puesto")
   ]);
   const nivel:Set<number> = new Set();
-  Object.values(grupo).forEach(g=>{
+  const grupo: string[] = [];
+  Object.values(subgrupo).forEach(g=>{
+    const gid = g.id.charAt(0);
+    if (!grupo.includes(gid)) grupo.push(gid);
     g.nivel.forEach(n=>nivel.add(n))
   })
+  ministerio.unshift({id:NaN, txt:'Todos'})
   doOptions("pais", pais, DEF_PAIS.toString());
   doOptions("ministerio", ministerio);
-  doOptions("grupo", ([{id:'NULL', txt:'Sin grupo'}] as any[]).concat(Object.keys(grupo)));
-  doOptions("nivel", [...nivel].sort());
+  doOptions("grupo", ([{id:'NULL', txt:'Sin grupo'}] as any[]).concat(grupo.map(toIdTxt)));
+  //doOptions("nivel", [...nivel].sort());
   doOptions("provision", provision);
   doOptions("tipo", tipo);
 
@@ -169,14 +171,16 @@ const doMain = async function () {
   new SelectTree(
     "pais",
     {
-    "provincia": async  (parent: number) => {
+    "provincia": async (idparent: string) => {
+      const parent = parseInt(idparent);
       const arr = await DB.selectTableWhere("provincia", "pais", parent);
       if (arr.length>1) {
         arr.unshift({id: NaN, txt:'Todo el territorio', pais: parent});
       }
       return arr;
     },
-    "localidad": async  (parent: number) => {
+    "localidad": async (idparent: string) => {
+      const parent = parseInt(idparent);
       const arr = await DB.selectTableWhere("localidad", "provincia", parent);
       if (arr.length>1) {
         arr.unshift({id: NaN, txt:'Todo el territorio', provincia: parent, localidad: NaN});
@@ -187,19 +191,40 @@ const doMain = async function () {
   new SelectTree(
     "ministerio",
     {
-    "centro": async  (parent: number) => {
+    "centro": async (idparent: string) => {
+      const parent = parseInt(idparent);
       const arr = await DB.selectTableWhere("centro", "ministerio", parent);
       if (arr.length>1) {
         arr.unshift({id: NaN, txt:'Cualquiera', ministerio: parent});
       }
       return arr;
     },
-    "unidad": async  (parent: number) => {
+    "unidad": async (idparent: string) => {
+      const parent = parseInt(idparent);
       const arr = await DB.selectTableWhere("unidad", "centro", parent);
       if (arr.length>1) {
         arr.unshift({id: NaN, txt:'Cualquiera', centro: parent, localidad: NaN});
       }
       return arr;
+    },
+  })
+  new SelectTree(
+    "grupo",
+    {
+    "subgrupo": async (parent: string) => {
+      const arr = Object.values(subgrupo).flatMap(g=>{
+        if (!g.id.startsWith(parent)) return [];
+        return {id: g.id, txt: g.id}
+      })
+      if (arr.length>1) {
+        arr.unshift({id: '', txt: 'Todos'})
+      }
+      return arr;
+    },
+    "nivel": async (parent: number|string) => {
+      const g = subgrupo[parent];
+      if (g == null) return [];
+      return g.nivel.map(n=>{return {id: n, txt: n.toString()}});
     },
   })
 
@@ -213,9 +238,9 @@ const doMain = async function () {
 
 
 class SelectTree {
-  private selects: {[key: string]: (parent:number)=>Promise<IdTxt[]>};
   private root: HTMLSelectElement;
-  constructor(rootid: string, selects: {[key: string]: (parent:number)=>Promise<IdTxt[]>}) {
+  private selects: {[key: string]: (parent:string)=>Promise<IdTxt[]>};
+  constructor(rootid: string, selects: {[key: string]: (parent:string)=>Promise<IdTxt[]>}) {
     this.root = byId(HTMLSelectElement, rootid, true)!;
     this.selects = selects;
     Object.entries(this.selects).forEach(([id, fn], i, arr)=> {
@@ -223,14 +248,14 @@ class SelectTree {
       const parent = i==0?this.root:byId(HTMLSelectElement, arr[i-1][0], true)!;
       parent.addEventListener("change", async() => {
         const meLength = me.options.length;
-        const oldParent = parseInt(me.getAttribute("data-parent")??'');
-        const pId = parseInt(parent.value);
+        const oldParent = me.getAttribute("data-parent")??'';
+        const pId = parent.value;
         if (pId == oldParent) return;
         me.setAttribute("data-val-in-"+oldParent, me.value);
         me.setAttribute("data-parent", pId.toString())
-        const arr = isNaN(pId)?[]:await fn(pId);
-        const oldVal = parseInt(me.getAttribute("data-val-in-"+pId)??'');
-        const val = isNaN(oldVal)?me.value:oldVal.toString();
+        const arr = pId.length==0?[]:await fn(pId);
+        const oldVal = me.getAttribute("data-val-in-"+pId)??'';
+        const val = oldVal.length?oldVal:me.value;
         doOptions(me.id, arr);
         if (me.value!=val || meLength!=me.options.length) {
           me.value = val;
