@@ -28,6 +28,13 @@ export class Db {
       if (this.onerror) this.onerror(obj.error);
       throw obj.error;
     }
+    if (obj.data == null && ("count" in obj)) {
+      const count = (<any>obj).count;
+      if (typeof count === "number" && !isNaN(count)) {
+        console.log(log + ": count(*) = " + count);
+        return count;
+      }
+    }
     console.log(log + ": " + obj.data.length + " resultados");
     return obj.data;
   }

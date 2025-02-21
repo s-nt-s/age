@@ -75,12 +75,18 @@ const toIdTxt = (x: IdTxtLike):IdTxt => {
   if (typeof x == "number") return {id:isNaN(x)?'':x.toString(), txt:x.toString()};
   return x;
 }
-function doOptions<T extends IdTxtLike>(id: string, arr: T[], def?: string) {
+const getValsOptions = (e: HTMLSelectElement) => Array.from(e.options).map(e=>e.value);
+
+function doOptions<T extends IdTxtLike>(id: string, options: T[], def?: string) {
   let w = 0;
   const e = byId(HTMLSelectElement, id)!;
   const v = e.value;
   e.innerHTML = '';
-  arr.sort(sort).map(toIdTxt).forEach(x=>{
+  const arr = options.sort(sort).map(toIdTxt);
+  if (arr.length > 1 && !e.multiple) {
+    arr.unshift({id: '', txt: '-- Cualquiera --'});
+  }
+  arr.forEach(x=>{
     if (x.txt.length>w) w=x.txt.length;
     const val =(typeof x.id == "number" && isNaN(x.id))?'':(x.table?`${x.table}_${x.id}`:x.id.toString());
     e.insertAdjacentHTML(
@@ -88,44 +94,13 @@ function doOptions<T extends IdTxtLike>(id: string, arr: T[], def?: string) {
      `<option value="${val}">${x.txt}</option>`
     )
   });
-  const vls = Array.from(e.options).map(e=>e.value);
+  const vls = getValsOptions(e);
   if (v.length>0 && vls.includes(v)) e.value = v;
   else if (def && vls.includes(def)) e.value = def.toString();
   const isSingle = e.options.length == 1;
   const isEmpty = e.options.length == 0;
   e.disabled = isEmpty;
   e.style.display = isSingle || isEmpty?'none':'';
-}
-function doOptionsGroups(id: string, group: [IdTxt, IdTxt[]][]) {
-  const otros: IdTxt[] = [];
-  group = group.filter(([g, arr])=>{
-    if (arr.length==0) return false;
-    if (arr.length>1) return true;
-    const x = arr[0];
-    otros.push({
-      id: x.id,
-      txt: g.txt + ' - ' + x.txt,
-      table: x.table
-    })
-    return false;
-  }).sort((a, b)=> sort(a[0], b[0]));
-
-  if (otros.length>0) group.push([
-    {id:"otros", txt:"Otros"},
-    otros
-  ])
-  let size = group.length;
-  const e = byId(HTMLSelectElement, id)!;
-  group.forEach(([g, arr])=>{
-    const gid = g.table?`${g.table}_${g.id}`:`${id}_${g.id}`;
-    size = size + arr.length;
-    e.insertAdjacentHTML(
-      "beforeend",
-      `<optgroup id="${gid}" label="${g.txt}"></option>`
-    )
-    doOptions(gid, arr);
-  });
-  if (e.tagName=="SELECT" && (<HTMLSelectElement>e).multiple) (<HTMLSelectElement>e).size=size;
 }
 
 const doMain = async function () {
@@ -155,76 +130,68 @@ const doMain = async function () {
   doOptions("pais", pais, DEF_PAIS.toString());
   doOptions("ministerio", ministerio);
   doOptions("grupo", ([{id:'NULL', txt:'Sin grupo'}] as any[]).concat(grupo.map(toIdTxt)));
-  //doOptions("nivel", [...nivel].sort());
   doOptions("provision", provision);
   doOptions("tipo", tipo);
-
-    /*
-  document.querySelectorAll("select").forEach(e=>{
-    if (e.options.length==0) return e.remove();
-    if (e.multiple) e.size=3;
-  })
-    */
 
   F.inputs.forEach(e=>e.addEventListener("change", doSynch));
 
   new SelectTree(
     "pais",
     {
-    "provincia": async (idparent: string) => {
-      const parent = parseInt(idparent);
+    "provincia": async (...vals: string[]) => {
+      const parent = parseInt(vals[0]);
+      if (isNaN(parent)) return [];
       const arr = await DB.selectTableWhere("provincia", "pais", parent);
-      if (arr.length>1) {
-        arr.unshift({id: NaN, txt:'Todo el territorio', pais: parent});
-      }
       return arr;
     },
-    "localidad": async (idparent: string) => {
-      const parent = parseInt(idparent);
+    "localidad": async (...vals: string[]) => {
+      const parent = parseInt(vals[0]);
+      if (isNaN(parent)) return [];
       const arr = await DB.selectTableWhere("localidad", "provincia", parent);
-      if (arr.length>1) {
-        arr.unshift({id: NaN, txt:'Todo el territorio', provincia: parent, localidad: NaN});
-      }
       return arr;
     },
   })
   new SelectTree(
     "ministerio",
     {
-    "centro": async (idparent: string) => {
-      const parent = parseInt(idparent);
+    "centro": async (...vals: string[]) => {
+      const parent = parseInt(vals[0]);
+      if (isNaN(parent)) return [];
       const arr = await DB.selectTableWhere("centro", "ministerio", parent);
-      if (arr.length>1) {
-        arr.unshift({id: NaN, txt:'Cualquiera', ministerio: parent});
-      }
       return arr;
     },
-    "unidad": async (idparent: string) => {
-      const parent = parseInt(idparent);
+    "unidad": async (...vals: string[]) => {
+      const parent = parseInt(vals[0]);
+      if (isNaN(parent)) return [];
       const arr = await DB.selectTableWhere("unidad", "centro", parent);
-      if (arr.length>1) {
-        arr.unshift({id: NaN, txt:'Cualquiera', centro: parent, localidad: NaN});
-      }
       return arr;
     },
   })
   new SelectTree(
     "grupo",
     {
-    "subgrupo": async (parent: string) => {
+    "subgrupo": async (...vals: string[]) => {
+      const parent = vals[0];
+      if (parent.length == 0) return [];
       const arr = Object.values(subgrupo).flatMap(g=>{
         if (!g.id.startsWith(parent)) return [];
         return {id: g.id, txt: g.id}
       })
-      if (arr.length>1) {
-        arr.unshift({id: '', txt: 'Todos'})
-      }
       return arr;
     },
-    "nivel": async (parent: number|string) => {
+    "nivel": async (...vals: string[]) => {
+      const parent = vals[0];
       const g = subgrupo[parent];
-      if (g == null) return [];
-      return g.nivel.map(n=>{return {id: n, txt: n.toString()}});
+      if (g!=null) {
+        return g.nivel.map(toIdTxt);
+      }
+      const grandp = vals[1];
+      if (grandp == null || grandp.length==0) return [];
+      const nvls: Set<number> = new Set();
+      Object.values(subgrupo).forEach(g=>{
+        if (g.id.startsWith(grandp)) g.nivel.forEach(n=>nvls.add(n));
+      })
+      return [...nvls].sort().map(toIdTxt);
     },
   })
 
@@ -239,26 +206,30 @@ const doMain = async function () {
 
 class SelectTree {
   private root: HTMLSelectElement;
-  private selects: {[key: string]: (parent:string)=>Promise<IdTxt[]>};
-  constructor(rootid: string, selects: {[key: string]: (parent:string)=>Promise<IdTxt[]>}) {
+  private selects: {[key: string]: (...parent:string[])=>Promise<IdTxt[]>};
+  constructor(rootid: string, selects: {[key: string]: (...parent:string[])=>Promise<IdTxt[]>}) {
     this.root = byId(HTMLSelectElement, rootid, true)!;
     this.selects = selects;
+    const walk = [this.root];
     Object.entries(this.selects).forEach(([id, fn], i, arr)=> {
       const me = byId(HTMLSelectElement, id, true)!;
-      const parent = i==0?this.root:byId(HTMLSelectElement, arr[i-1][0], true)!;
-      parent.addEventListener("change", async() => {
-        const meLength = me.options.length;
+      if (i>0) {
+        walk.push(byId(HTMLSelectElement, arr[i-1][0], true)!)
+      }
+      const parents = walk.slice();
+      walk[walk.length-1].addEventListener("change", async() => {
+        const bak = getValsOptions(me).join("\n");
         const oldParent = me.getAttribute("data-parent")??'';
-        const pId = parent.value;
+        const pId = parents.map(x=>x.value).join("____");
         if (pId == oldParent) return;
         me.setAttribute("data-val-in-"+oldParent, me.value);
-        me.setAttribute("data-parent", pId.toString())
-        const arr = pId.length==0?[]:await fn(pId);
+        me.setAttribute("data-parent", pId)
+        const arr = pId.length==0?[]:await fn(...parents.map(p=>p.value).reverse());
         const oldVal = me.getAttribute("data-val-in-"+pId)??'';
         const val = oldVal.length?oldVal:me.value;
         doOptions(me.id, arr);
-        if (me.value!=val || meLength!=me.options.length) {
-          me.value = val;
+        if (me.value!=val || bak!=getValsOptions(me).join("\n")) {
+          if (getValsOptions(me).includes(val)) me.value = val;
           me.dispatchEvent(new Event("change"));
         }
       })
@@ -277,7 +248,7 @@ async function doSearch() {
   if (!F.checkValidity(true)) return false;
   const fd = F.getMyData();
   console.log(fd);
-  let prm = DB.from("rpt").select();
+  let prm = DB.from("rpt").select('*', { count: 'exact', head: true });
   const _w = (f: string, arr: any[]) => {
     if (arr.length==0) return prm;
     if (arr.length==1) return prm.eq(f, arr[0])
