@@ -1,4 +1,4 @@
-import { sort, byId } from './lib/util'
+import { sort, byId, toString } from './lib/util'
 import { AGE } from './lib/age'
 import { DB } from "./lib/supabaseClient.ts";
 import type { TableName } from './lib/supabaseClient'
@@ -110,14 +110,16 @@ const doMain = async function () {
     ministerio,
     pais,
     provision,
-    tipo
+    tipo,
+    provision_tipo,
   ] = await Promise.all([
     AGE.getFuentes(true),
     AGE.getGrupoNivel(),
     DB.get("ministerio"),
     DB.get("pais"),
     DB.get("provision"),
-    DB.get("tipo_puesto")
+    DB.dct("tipo_puesto"),
+    DB.get("provision_tipo")
   ]);
   const nivel:Set<number> = new Set();
   const grupo: string[] = [];
@@ -127,13 +129,17 @@ const doMain = async function () {
     g.nivel.forEach(n=>nivel.add(n))
   })
   ministerio.unshift({id:NaN, txt:'Todos'})
+  if (provision_tipo.some(pt=>pt.provision==null)) {
+    provision.unshift({id: 'NULL', txt: '-- Sin información --'})
+  }
   doOptions("pais", pais, DEF_PAIS.toString());
   doOptions("ministerio", ministerio);
   doOptions("grupo", ([{id:'NULL', txt:'Sin grupo'}] as any[]).concat(grupo.map(toIdTxt)));
   doOptions("provision", provision);
-  doOptions("tipo", tipo);
-
-  F.inputs.forEach(e=>e.addEventListener("change", doSynch));
+  doOptions("vacante", [
+    {id: 1, txt: 'Vacante'},
+    {id: 0, txt: 'Ocupado'}
+  ])
 
   new SelectTree(
     "pais",
@@ -194,6 +200,21 @@ const doMain = async function () {
       return [...nvls].sort().map(toIdTxt);
     },
   })
+  new SelectTree(
+    "provision",
+    {
+    "tipo": async (...vals: string[]) => {
+      const parent = vals[0];
+      if (parent.length == 0) return [];
+      const arr = provision_tipo.flatMap(pt=>{
+        if ((pt.provision??'NULL')!=parent) return [];
+        if (pt.tipo==null) return [{id: 'NULL', txt:'-- Sin información --'}];
+        return [tipo[pt.tipo]];
+      })
+      if (arr.length==1) return [];
+      return arr;
+    },
+  })
 
   document.forms[0].addEventListener("submit", (e) => {
     doSearch();
@@ -239,16 +260,8 @@ class SelectTree {
 }
 
 
-async function doSynch() {
-
-
-}
-
-async function doSearch() {
-  if (!F.checkValidity(true)) return false;
-  const fd = F.getMyData();
-  console.log(fd);
-  let prm = DB.from("rpt").select('*', { count: 'exact', head: true });
+function getPrm(fd: ReturnType<MyForm["getMyData"]>, count: boolean) {
+  let prm = DB.from("rpt").select('*', count?{ count: 'exact', head: true }:undefined);
   const _w = (f: string, arr: any[]) => {
     if (arr.length==0) return prm;
     if (arr.length==1) return prm.eq(f, arr[0])
@@ -260,10 +273,24 @@ async function doSearch() {
   prm = _w("provision", fd.provision);
   if (fd.lugar) _w(fd.lugar[0], [fd.lugar[1]]);
   if (fd.organismo) _w(fd.organismo[0], [fd.organismo[1]]);
-  DB.get_data(
+  return prm;
+}
+
+
+async function doSearch() {
+  const div = byId(HTMLDivElement, "result", true)!;
+  div.innerHTML = "";
+  if (!F.checkValidity(true)) return false;
+  const fd = F.getMyData();
+  console.log(fd);
+  const count = DB.get_data(
     `rpt`,
-    await prm
-  );
+    await getPrm(fd, true)
+  ) as number;
+  const MAX_COUNT = 1000;
+  if (count>=1000) {
+    div!.innerHTML = `<p>Demasiados resultados (${toString(count)}). Refina la búsqueda para dejarlo en menos de ${toString(MAX_COUNT)}.</p>`
+  }
 }
 
 document.addEventListener("DOMContentLoaded", doMain);

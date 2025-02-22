@@ -710,6 +710,28 @@ export type Database = {
         }
         Relationships: []
       }
+      provision_tipo: {
+        Row: {
+          provision: string | null
+          tipo: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "puesto_provision_fkey"
+            columns: ["provision"]
+            isOneToOne: false
+            referencedRelation: "provision"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "puesto_tipo_fkey"
+            columns: ["tipo"]
+            isOneToOne: false
+            referencedRelation: "tipo_puesto"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rpt: {
         Row: {
           cargo: number | null
@@ -754,13 +776,6 @@ export type Database = {
             columns: ["cargo"]
             isOneToOne: false
             referencedRelation: "cargo"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "puesto_grupo_grupo_fkey"
-            columns: ["grupo"]
-            isOneToOne: false
-            referencedRelation: "grupo"
             referencedColumns: ["id"]
           },
           {
