@@ -445,6 +445,8 @@ async function doSearch() {
       "Organismo",
       "Lugar",
       "Cargo",
+      "Tipo",
+      "Provisión",
       "<abbr title='Sueldo bruto anual'>€</abbr>"
     ]],
     rpt,
@@ -456,6 +458,8 @@ async function doSearch() {
       brJoin(ministerio[i.ministerio??''], centro[i.centro??''], unidad[i.unidad??'']),
       brJoin(pais[i.pais??''], provincia[i.provincia??''], localidad[i.localidad??'']),
       cargo[i.cargo??''],
+      tipo[i.tipo??''],
+      provision[i.provision??''],
       i.sueldo
     ]
   );
