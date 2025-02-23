@@ -1,5 +1,5 @@
 import { DB, TableName } from "./lib/supabaseClient.ts";
-import { getDom, toString } from "./lib/util.ts";
+import { getDom, toTable } from "./lib/util.ts";
 import { AGE } from "./lib/age";
 import type { Tables } from "./lib/database.types";
 
@@ -21,7 +21,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   a2.textContent = getDom(r.via);
   f.querySelector("span")!.textContent = r.fecha;
 
-  toTable(
+  __toTable(
     [
       [
         "<th rowspan='2'>Grupo</th>",
@@ -35,7 +35,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     (i: Tables<"grupo">) => [i.id, i.base, i.trienio, i.extra_base, i.extra_trienio, i.muface_cotizacion]
   );
 
-  toTable(
+  __toTable(
     [["Nivel", "Complemento<br/>destino"]],
     Object.values(n) as Tables<"nivel">[],
     (i: Tables<"nivel">) => [i.id, i.destino]
@@ -43,29 +43,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   showMain();
 });
-function toTable<N extends TableName, T extends Tables<N>>(head: string[][], rows: T[], toRow: (i: T) => (string|number|null)[]) {
-  const table = [
-    "<table>",
-    "<thead>"
-  ];
-  head.forEach(h=>{
-    table.push("<tr>" + h.map(t=>/^<th/.test(t)?t:`<th>${t}</th>`).join("") + "</tr>")
-  })
-  table.push("</thead>");
-  table.push("</tbody>");
-  rows.forEach(r=>{
-    const _row = toRow(r).map(x=>{
-      if (x==null) return '<td></td>';
-      if (typeof x == "string") {
-        if (/^<td/.test(x)) return x;
-        return '<td>'+x+'</td>';
-      }
-      return `<td style='text-align: right' title='${toString(x, 2)}'>${toString(x)}</td>`
-    }).join('');
-    table.push("<tr>" + _row + "</tr>")
-  })
-  table.push("</tbody>")
-  table.push("</table>")
+
+function __toTable<N extends TableName, T extends Tables<N>>(head: string[][], rows: T[], toRow: (i: T) => (string|number|null)[]) {
+  const table = toTable(head, rows, toRow);
   document.getElementById("main")!.insertAdjacentHTML('beforeend', table.join("\n"));
 }
 

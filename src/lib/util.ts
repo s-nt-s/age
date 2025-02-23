@@ -1,3 +1,6 @@
+import { TableName } from "./supabaseClient.ts";
+import type { Tables } from "./database.types";
+
 export function getDom(url: string): string {
   const urlObj = new URL(url);
   const dom = urlObj.hostname;
@@ -68,4 +71,29 @@ export function mapObject<T extends Record<string|number, any>, U>(
   return Object.fromEntries(
     Object.entries(obj).map(([key, value]) => [key, fn(key, value)]).filter(([_, v])=>v!=null)
   );
+}
+export function toTable<N extends TableName, T extends Tables<N>>(head: string[][], rows: T[], toRow: (i: T) => (string|number|null)[]) {
+  const table = [
+    "<table>",
+    "<thead>"
+  ];
+  head.forEach(h=>{
+    table.push("<tr>" + h.map(t=>/^<th/.test(t)?t:`<th>${t}</th>`).join("") + "</tr>")
+  })
+  table.push("</thead>");
+  table.push("</tbody>");
+  rows.forEach(r=>{
+    const _row = toRow(r).map(x=>{
+      if (x==null) return '<td></td>';
+      if (typeof x == "string") {
+        if (/^<td/.test(x)) return x;
+        return '<td>'+x+'</td>';
+      }
+      return `<td style='text-align: right' title='${toString(x, 2)}'>${toString(x)}</td>`
+    }).join('');
+    table.push("<tr>" + _row + "</tr>")
+  })
+  table.push("</tbody>");
+  table.push("</table>");
+  return table;
 }

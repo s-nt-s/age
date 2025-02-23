@@ -1,12 +1,13 @@
-import { sort, byId, toString } from './lib/util'
+import { sort, byId, toString, toTable } from './lib/util'
 import { AGE } from './lib/age'
 import { DB } from "./lib/supabaseClient.ts";
-import type { TableName } from './lib/supabaseClient'
+import type { TableColumn, TableName } from './lib/supabaseClient'
 import { Form } from "./lib/form";
+import type { Tables } from "./lib/database.types";
 
-const DEF_PAIS = 724;
-const DEV_PROV = 28;
-const DEV_LOC = 94;
+const SPAIN = 724;
+//const DEV_PROV = 28;
+//const DEV_LOC = 94;
 
 class MyForm extends Form {
   get error() {
@@ -55,14 +56,25 @@ class MyForm extends Form {
       if (isNaN(v) || v<0) return null;
       return [id, v] as [string, number];
     }
-    return {
-      grupo: fd.getStrArr("grupo"),
-      nivel: fd.getNumArr("nivel"),
-      provision: fd.getStrArr("provision"),
-      tipo: fd.getStrArr("tipo"),
+    const __getSubgrupo = () => {
+      const s = fd.getStr("subgrupo");
+      if (s.length>0) return [s];
+      const g = fd.getStr("grupo");
+      if (g.length==0) return [];
+      const arr = getValsOptions(byId(HTMLSelectElement, "subgrupo", true)!).filter(x=>x.startsWith(g));
+      return arr;
+    }
+    const obj = {
+      region: fd.getStr("region"),
       lugar: __get("localidad") || __get("provincia") || __get("pais"),
       organismo: __get("unidad") || __get("centro") || __get("ministerio"),
+      grupo:__getSubgrupo(),
+      nivel: fd.getNum("nivel"),
+      vacante: fd.getNum("vacante"),
+      provision: fd.getStr("provision"),
+      tipo: fd.getStr("tipo"),
     }
+    return obj;
   }
 }
 
@@ -128,11 +140,14 @@ const doMain = async function () {
     if (!grupo.includes(gid)) grupo.push(gid);
     g.nivel.forEach(n=>nivel.add(n))
   })
-  ministerio.unshift({id:NaN, txt:'Todos'})
   if (provision_tipo.some(pt=>pt.provision==null)) {
     provision.unshift({id: 'NULL', txt: '-- Sin información --'})
   }
-  doOptions("pais", pais, DEF_PAIS.toString());
+  doOptions("region", [
+    {id: 'ES', txt: 'España'},
+    {id: 'EX', txt: 'Extranjero'}
+  ], "ES");
+  doOptions("pais", pais, SPAIN.toString());
   doOptions("ministerio", ministerio);
   doOptions("grupo", ([{id:'NULL', txt:'Sin grupo'}] as any[]).concat(grupo.map(toIdTxt)));
   doOptions("provision", provision);
@@ -142,8 +157,14 @@ const doMain = async function () {
   ])
 
   new SelectTree(
-    "pais",
+    "region",
     {
+      "pais": async (...vals: string[]) => {
+        const parent = vals[0];
+        if (parent.length==0) return [];
+        if (parent=="ES") return await DB.selectTableWhere("pais", "id", SPAIN);
+        return await DB.selectTableWhere("pais", "id", "!"+SPAIN);
+      },
     "provincia": async (...vals: string[]) => {
       const parent = parseInt(vals[0]);
       if (isNaN(parent)) return [];
@@ -261,19 +282,44 @@ class SelectTree {
 
 
 function getPrm(fd: ReturnType<MyForm["getMyData"]>, count: boolean) {
+  const log:string[] = [];
   let prm = DB.from("rpt").select('*', count?{ count: 'exact', head: true }:undefined);
-  const _w = (f: string, arr: any[]) => {
+  const _w = (f: string, obj: unknown, oposite?: boolean) => {
+    if (obj==null) return prm;
+    const arr = (Array.isArray(obj)?obj:[obj]).filter(x=>{
+      if (typeof x == "number") return !isNaN(x);
+      if (typeof x == "string") return x.length>0;
+      return true;
+    })
     if (arr.length==0) return prm;
-    if (arr.length==1) return prm.eq(f, arr[0])
+    if (arr.length==1) {
+      const val =  arr[0];
+      if (oposite) {
+        log.push(`${f}!=${val}`);
+        return prm.neq(f,val)
+      }
+      log.push(`${f}=${val}`);
+      return prm.eq(f, val)
+    }
+    if (oposite) {
+      log.push(`${f} not in (${arr.join(', ')})`);
+      return prm.not(f, "in", arr);
+    }
+    log.push(`${f} in (${arr.join(', ')})`);
     return prm.in(f, arr)
   }
+  if (fd.lugar) _w(fd.lugar[0], [fd.lugar[1]]);
+  else if (fd.region=="EX") prm =_w("pais", SPAIN, true);
+  if (fd.organismo) prm =_w(fd.organismo[0], [fd.organismo[1]]);
   prm = _w("grupo", fd.grupo);
   prm = _w("nivel", fd.nivel);
-  prm = _w("tipo", fd.tipo);
+  prm = _w("vacante", fd.vacante);
   prm = _w("provision", fd.provision);
-  if (fd.lugar) _w(fd.lugar[0], [fd.lugar[1]]);
-  if (fd.organismo) _w(fd.organismo[0], [fd.organismo[1]]);
-  return prm;
+  prm = _w("tipo", fd.tipo);
+  return {
+    log: log,
+    prm: prm
+  };
 }
 
 
@@ -283,14 +329,87 @@ async function doSearch() {
   if (!F.checkValidity(true)) return false;
   const fd = F.getMyData();
   console.log(fd);
+  const {log, prm} = getPrm(fd, true);
   const count = DB.get_data(
-    `rpt`,
-    await getPrm(fd, true)
+    'rpt['+log.join(',')+']',
+    await prm
   ) as number;
   const MAX_COUNT = 1000;
   if (count>=1000) {
-    div!.innerHTML = `<p>Demasiados resultados (${toString(count)}). Refina la búsqueda para dejarlo en menos de ${toString(MAX_COUNT)}.</p>`
+    div.innerHTML = `<p>Demasiados resultados (${toString(count)}). Refina la búsqueda para dejarlo en menos de ${toString(MAX_COUNT)}.</p>`
+    return;
   }
+  if (count==0) {
+    div.innerHTML = `<p>No hay resultados</p>`;
+    return;
+  }
+  const rpt = DB.get_data(
+    'rpt['+log.join(',')+']',
+    await getPrm(fd, false).prm
+  ) as Tables<"rpt">[];
+
+  const ids: {[key: string]: Set<number|string>} = {}
+  const __add = (k: string, v:string|number|null, kk?: string) => {
+    if (v==null) return;
+    if (typeof v=="number" && isNaN(v)) return;
+    if (typeof v=="string" && v.length==0) return;
+    if (kk==undefined) kk = k;
+    if (!(kk in ids)) ids[kk]=new Set();
+    ids[kk].add(v);
+  }
+  rpt.forEach(r=>{
+    __add("pais", r.pais);
+    __add("provincia", r.provincia);
+    __add("localidad", r.localidad);
+    __add("ministerio", r.ministerio);
+    __add("centro", r.centro);
+    __add("unidad", r.unidad);
+    __add("tipo", r.tipo, 'tipo_puesto');
+    __add("provision", r.provision);
+    __add("cargo", r.cargo);
+  })
+
+  const __dct = async (k: TableName) => {
+    const vls = ids[k];
+    if (vls == null || vls.size == 0) return {};
+    return DB.dct(k, ...<Set<number>>vls);
+  }
+
+  const [
+    pais,
+    provincia,
+    localidad,
+    ministerio,
+    centro,
+    unidad,
+    tipo,
+    provision,
+    cargo
+  ] = await Promise.all([
+    __dct("pais"),
+    __dct("provincia"),
+    __dct("localidad"),
+    __dct("ministerio"),
+    __dct("centro"),
+    __dct("unidad"),
+    __dct("tipo_puesto"),
+    __dct("provision"),
+    __dct("cargo"),
+  ])
+
+  const table = toTable(
+    [["ID", "Grupo", "Nivel", "Cargo", "Vacante", "Sueldo"]],
+    rpt,
+    (i: Tables<"rpt">) => [
+      i.id,
+      i.grupo,
+      i.nivel,
+      cargo[i.cargo??'']?.txt,
+      i.vacante?"Si": "No",
+      i.sueldo
+    ]
+  );
+  div.innerHTML = table.join('\n');
 }
 
 document.addEventListener("DOMContentLoaded", doMain);

@@ -42,8 +42,8 @@ export class Db {
   async all<T extends TableName>(table: T) {
     return this.get(table);
   }
-  async dct<T extends TableName>(table: T) {
-    const arr = await this.get(table);
+  async dct<T extends TableName>(table: T, ...ids: string[]|number[]) {
+    const arr = await this.get(table, ...ids);
     const kv = arr.map(t=>{
       if (!("id" in t)) return null;
       const k = t.id;
@@ -106,7 +106,7 @@ export class Db {
 
   private __unpackWhereArg(v: number|string): [string, number]|null {
     if (typeof v != "string") return null;
-    const m = v.match(/^(<|>|<=|>=)(\d+)$/);
+    const m = v.match(/^(<|>|<=|>=|\!)(\d+)$/);
     if (m == null) return null;
     const n = parseInt(m[2]);
     if (n==null) return null;
@@ -132,6 +132,7 @@ export class Db {
         if (s=="<") return (prm=prm.lt(where_field, v));
         if (s=="<=") return (prm=prm.lte(where_field, v));
         if (s==">=") return (prm=prm.gte(where_field, v));
+        if (s=="!") return (prm=prm.neq(where_field, v));
         throw "Bad argument: "+s;
       })
       if (_in_.length == 1) prm = prm.eq(where_field, _in_[0]);
@@ -168,11 +169,11 @@ export class Db {
       .order(field.toString(), { ascending: ascending }).limit(1)
 
     const log = arr.length == 0 || !where_fieldName? table_field : `${table_field}[${where_fieldName.toString()}=${arr}]`;
-    const val = this.get_data(
+    const tval = this.get_data(
       `${ascending?'min':'max'}(${log})`,
       await prm
-    )[0];
-    return val[field];
+    ) as Tables<T>[];
+    return tval[0][field];
   }
   async min<T extends TableName, C extends TableColumn<T>>(
     table: T,
