@@ -1,10 +1,10 @@
 class FData {
-  private readonly obj: { [key: string]: string | number | (string | number)[] };
-  constructor(obj:{ [key: string]: string | number | (string | number)[] }) {
-    this.obj = obj;
+  readonly kv: { [key: string]: string | number | (string | number)[] };
+  constructor(kv:{ [key: string]: string | number | (string | number)[] }) {
+    this.kv = Object.freeze(kv);
   }
   get(k: string) {
-    return this.obj[k];
+    return this.kv[k];
   }
   getNum(k: string) {
     const v = this.get(k);
@@ -88,7 +88,7 @@ export class Form {
 
   getQuery() {
     const fd = new FormData(this.form);
-    const arr = Array.from(fd).map(([k, v]) => [k, v.toString()]);
+    const arr = Array.from(fd).map(([k, v]) => [k, v.toString()]).filter(([_, v])=>v.length>0);
     return new URLSearchParams(arr).toString();
   }
 

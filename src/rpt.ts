@@ -1,8 +1,9 @@
 import { sort, byId, toString, toTable } from './lib/util'
 import { AGE } from './lib/age'
 import { DB } from "./lib/supabaseClient.ts";
-import type { TableColumn, TableName } from './lib/supabaseClient'
+import type { TableName } from './lib/supabaseClient'
 import { Form } from "./lib/form";
+import { MKQ, Q } from "./lib/Q";
 import type { Tables } from "./lib/database.types";
 
 const SPAIN = 724;
@@ -75,6 +76,15 @@ class MyForm extends Form {
       tipo: fd.getStr("tipo"),
     }
     return obj;
+  }
+  getMyQuery() {
+    const arr = this.inputs.map(i=>{
+      const v = i.value;
+      if (v.length == 0) return null;
+      if (getComputedStyle(i).display == 'none') return null;
+      return [i.name, v];
+    }).filter(x=>x!=null)
+    return new URLSearchParams(arr).toString();
   }
 }
 
@@ -237,6 +247,14 @@ const doMain = async function () {
     },
   })
 
+  F.inputs.forEach((e) => {
+    const v = Q.get(e.name);
+    const old = e.value;
+    if (typeof v == "string") e.value = v;
+    if (typeof v == "number") e.value = v.toString();
+    if (old != e.value) e.dispatchEvent(new Event("change"));
+  });
+
   document.forms[0].addEventListener("submit", (e) => {
     doSearch();
     e.preventDefault();
@@ -255,6 +273,12 @@ class SelectTree {
     const walk = [this.root];
     Object.entries(this.selects).forEach(([id, fn], i, arr)=> {
       const me = byId(HTMLSelectElement, id, true)!;
+      const qVal = (()=>{
+        const v = Q.get(me.name);
+        if (typeof v == "number") return v.toString();
+        if (typeof v == "string") return v;
+        return '';
+      })();
       if (i>0) {
         walk.push(byId(HTMLSelectElement, arr[i-1][0], true)!)
       }
@@ -267,7 +291,7 @@ class SelectTree {
         me.setAttribute("data-val-in-"+oldParent, me.value);
         me.setAttribute("data-parent", pId)
         const arr = pId.length==0?[]:await fn(...parents.map(p=>p.value).reverse());
-        const oldVal = me.getAttribute("data-val-in-"+pId)??'';
+        const oldVal = me.getAttribute("data-val-in-"+pId)??qVal;
         const val = oldVal.length?oldVal:me.value;
         doOptions(me.id, arr);
         if (me.value!=val || bak!=getValsOptions(me).join("\n")) {
@@ -326,6 +350,7 @@ function getPrm(fd: ReturnType<MyForm["getMyData"]>, count: boolean) {
 async function doSearch() {
   const div = byId(HTMLDivElement, "result", true)!;
   div.innerHTML = "";
+  new MKQ(F.getMyQuery()).redirect(true);
   if (!F.checkValidity(true)) return false;
   const fd = F.getMyData();
   console.log(fd);
@@ -351,7 +376,7 @@ async function doSearch() {
   const ids: {[key: string]: Set<number|string>} = {}
   const __add = (k: string, v:string|number|null, kk?: string) => {
     if (v==null) return;
-    if (typeof v=="number" && isNaN(v)) return;
+    if (typeof v=="number" && (isNaN(v) || v<0)) return;
     if (typeof v=="string" && v.length==0) return;
     if (kk==undefined) kk = k;
     if (!(kk in ids)) ids[kk]=new Set();
@@ -372,7 +397,10 @@ async function doSearch() {
   const __dct = async (k: TableName) => {
     const vls = ids[k];
     if (vls == null || vls.size == 0) return {};
-    return DB.dct(k, ...<Set<number>>vls);
+    const obj = await DB.dct(k, ...<Set<number>>vls);
+    return Object.fromEntries(
+      Object.entries(obj).map(([k, v])=>[k, ("txt" in v)?v.txt:''])
+    );
   }
 
   const [
@@ -385,7 +413,7 @@ async function doSearch() {
     tipo,
     provision,
     cargo
-  ] = await Promise.all([
+  ]:{[key: string]: string}[] = await Promise.all([
     __dct("pais"),
     __dct("provincia"),
     __dct("localidad"),
@@ -395,17 +423,39 @@ async function doSearch() {
     __dct("tipo_puesto"),
     __dct("provision"),
     __dct("cargo"),
-  ])
+  ]);
+
+  const brJoin = (...args: (string|null)[]) => {
+    const arr: string[] = []
+    args.forEach((a)=> {
+      if (a==null) return;
+      if (arr.length>0 && arr[arr.length-1]==a) return;
+      arr.push(a);
+    })
+    if (arr.length==0) return '';
+    return arr.join("<br/>");
+  }
 
   const table = toTable(
-    [["ID", "Grupo", "Nivel", "Cargo", "Vacante", "Sueldo"]],
+    [[
+      "<abbr title='Vacante'>V</abbr>",
+      "ID",
+      "<abbr title='Grupo'>Gr</abbr>",
+      "<abbr title='Nivel'>Nv</abbr>",
+      "Organismo",
+      "Lugar",
+      "Cargo",
+      "<abbr title='Sueldo bruto anual'>€</abbr>"
+    ]],
     rpt,
     (i: Tables<"rpt">) => [
-      i.id,
+      i.vacante?"<abbr title='Vacante'>V</abbr>": "",
+      `<a href='../puesto/?${i.id}'>${i.id}</a>`,
       i.grupo,
       i.nivel,
-      cargo[i.cargo??'']?.txt,
-      i.vacante?"Si": "No",
+      brJoin(ministerio[i.ministerio??''], centro[i.centro??''], unidad[i.unidad??'']),
+      brJoin(pais[i.pais??''], provincia[i.provincia??''], localidad[i.localidad??'']),
+      cargo[i.cargo??''],
       i.sueldo
     ]
   );

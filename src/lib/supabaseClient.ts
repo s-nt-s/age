@@ -44,11 +44,11 @@ export class Db {
   }
   async dct<T extends TableName>(table: T, ...ids: string[]|number[]) {
     const arr = await this.get(table, ...ids);
-    const kv = arr.map(t=>{
+    const kv = arr.map((t:Tables<T>)=>{
       if (!("id" in t)) return null;
       const k = t.id;
-      if (typeof k == "string") return [k, t as Tables<T>];
-      if (typeof k == "number") return [k, t as Tables<T>];
+      if (typeof k == "string") return [k, t];
+      if (typeof k == "number") return [k, t];
       return null;
     }).filter(x=>x!=null) as [string|number, Tables<T>][];
     return Object.fromEntries(kv);
