@@ -62,6 +62,7 @@ class MyForm extends Form {
       if (s.length>0) return [s];
       const g = fd.getStr("grupo");
       if (g.length==0) return [];
+      if (g == "NULL") return ["NULL"];
       const arr = getValsOptions(byId(HTMLSelectElement, "subgrupo", true)!).filter(x=>x.startsWith(g));
       return arr;
     }
@@ -372,6 +373,10 @@ async function doSearch() {
   const rpt = DB.get_data(
     'rpt['+log.join(',')+']',
     await getPrm(fd, false).prm
+        .order('grupo', { ascending: false })
+        .order('nivel', { ascending: false })
+        .order('sueldo', { ascending: false })
+        .order('id', { ascending: false })
   ) as Tables<"rpt">[];
 
   const ids: {[key: string]: Set<number|string>} = {}
@@ -452,15 +457,15 @@ async function doSearch() {
     (i: Tables<"rpt">) => [
       i.vacante?"<abbr title='Vacante'>V</abbr>": "",
       `<td style='text-align: right'><a href='../puesto/?${i.id}' target='_blank'>${i.id}</a></td>`,
-      i.grupo,
-      i.nivel,
+      i.grupo=='NULL'?null:i.grupo,
+      `<td style='text-align: right'>${i.nivel}</td>`,
       i.sueldo,
       brJoin(ministerio[i.ministerio??''], centro[i.centro??''], unidad[i.unidad??'']),
       brJoin(pais[i.pais??''], provincia[i.provincia??''], localidad[i.localidad??'']),
       brJoin(cargo[i.cargo??''], tipo[i.tipo??''], provision[i.provision??'']),
     ]
   );
-  div.innerHTML = table.join('\n');
+  div.innerHTML = `<p>${toString(count)} resultados.</p>`+table.join('\n');
 }
 
 document.addEventListener("DOMContentLoaded", doMain);
