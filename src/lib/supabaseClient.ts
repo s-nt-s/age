@@ -138,7 +138,6 @@ export class Db {
       if (_in_.length == 1) prm = prm.eq(where_field, _in_[0]);
       else if (_in_.length > 1) prm = prm.in(where_field, _in_);
     }
-    if (field != '*') prm = prm.order(field, { ascending: true });
     return prm;
   }
 
@@ -166,14 +165,17 @@ export class Db {
   ): Promise<Tables<T>[C]>{
     const table_field = table + "." + field.toString();
     const prm = this.__buildSelectWhere(table, field, where_fieldName, ...arr)
-      .order(field.toString(), { ascending: ascending }).limit(1)
+      .order(field.toString(), { ascending: ascending, nullsFirst: false }).limit(1)
 
     const log = arr.length == 0 || !where_fieldName? table_field : `${table_field}[${where_fieldName.toString()}=${arr}]`;
+    const logline = `${ascending?'min':'max'}(${log})`;
     const tval = this.get_data(
-      `${ascending?'min':'max'}(${log})`,
+      logline,
       await prm
     ) as Tables<T>[];
-    return tval[0][field];
+    const val = tval[0][field];
+    console.log(logline + ' = '+val);
+    return val;
   }
   async min<T extends TableName, C extends TableColumn<T>>(
     table: T,

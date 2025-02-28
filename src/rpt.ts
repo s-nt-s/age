@@ -75,6 +75,7 @@ class MyForm extends Form {
       vacante: fd.getNum("vacante"),
       provision: fd.getStr("provision"),
       tipo: fd.getStr("tipo"),
+      sueldo: fd.getNum("sueldo")
     }
     return obj;
   }
@@ -134,13 +135,17 @@ const doMain = async function () {
     provision,
     tipo,
     provision_tipo,
+    sueldo_min,
+    sueldo_max
   ] = await Promise.all([
     AGE.getFuentes(true),
     AGE.getGrupoNivel(),
     DB.get("ministerio"),
     DB.get("provision"),
     DB.dct("tipo_puesto"),
-    DB.get("provision_tipo")
+    DB.get("provision_tipo"),
+    DB.min("rpt", "sueldo"),
+    DB.max("rpt", "sueldo"),
   ]);
   const nivel:Set<number> = new Set();
   const grupo: string[] = [];
@@ -152,6 +157,10 @@ const doMain = async function () {
   if (provision_tipo.some(pt=>pt.provision==null)) {
     provision.unshift({id: 'NULL', txt: '-- Sin información --'})
   }
+  const to_mil = (f: (x: number) => number, n: number) => f(n/1000).toString() + '000';
+  const sueldo = byId(HTMLInputElement, "sueldo")!;
+  sueldo.min = to_mil(Math.floor, sueldo_min!);
+  sueldo.max = to_mil(Math.floor, sueldo_max!);
   doOptions("region", [
     {id: 'ES', txt: 'España'},
     {id: 'EX', txt: 'Extranjero'}
@@ -338,6 +347,10 @@ function getPrm(fd: ReturnType<MyForm["getMyData"]>, count: boolean) {
   prm = _w("vacante", fd.vacante);
   prm = _w("provision", fd.provision);
   prm = _w("tipo", fd.tipo);
+  if (fd.sueldo && !isNaN(fd.sueldo)) {
+    log.push(`sueldo >= ${fd.sueldo}`);
+    prm = prm.gte("sueldo", fd.sueldo);
+  }
   return {
     log: log,
     prm: prm
