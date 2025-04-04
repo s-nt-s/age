@@ -75,11 +75,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     const gr = g[0];
     addDd("grupo", prtGrupo(gr.id));
     const bruto = Nomina.getBrutoAnual(gr.base, gr.extra_base, (n?n.destino:0), p.especifico??0)
-    addDd("sueldo", `<a title='${toString(bruto, 2)} €/año' href='../sueldo/?${id}&${gr.id}'>${toString(bruto)} €/año</a>`);
+    addDd("sueldo", `<a title='${toString(bruto, 2)} €/año' href='../sueldo/?${id}&grupo=${gr.id}'>${toString(bruto)} €/año</a>`);
   } else {
     addDd("grupo", ...g.map(gr=>{
         const bruto = Nomina.getBrutoAnual(gr.base, gr.extra_base, (n?n.destino:0), p.especifico??0)
-        return `<a href="?${id}&${gr.id}">${prtGrupo(gr.id)}</a> (<a title='${toString(bruto, 2)} €/año' href='../sueldo/?${id}&${gr.id}'>${toString(bruto)} €/año</a>)`
+        return `<a href="?${id}&grupo=${gr.id}">${prtGrupo(gr.id)}</a> (<a title='${toString(bruto, 2)} €/año' href='../sueldo/?${id}&grupo=${gr.id}'>${toString(bruto)} €/año</a>)`
     }));
   }
 
