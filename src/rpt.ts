@@ -1,4 +1,4 @@
-import { sort, byId, toString, toTable } from './lib/util'
+import { sort, byId, toString, toTable, executeWhen } from './lib/util'
 import { AGE } from './lib/age'
 import { DB } from "./lib/supabaseClient.ts";
 import type { TableName } from './lib/supabaseClient'
@@ -6,6 +6,7 @@ import { Form } from "./lib/form";
 import { MKQ, Q } from "./lib/Q";
 import type { Tables } from "./lib/database.types";
 
+let firstSearch = true;
 const SPAIN = 724;
 //const DEV_PROV = 28;
 //const DEV_LOC = 94;
@@ -268,6 +269,19 @@ const doMain = async function () {
     return false;
   })
   document.body.classList.add("loaded");
+  if (document.location.search.length > 1) {
+    const firstQr = document.location.search.substring(1);
+    executeWhen(
+      () => {
+        if (!firstSearch) return null;
+        return firstQr == F.getMyQuery();
+      },
+      ()=>{ 
+        doSearch(); 
+      },
+      0.5
+    )
+  }
 }
 
 
@@ -359,6 +373,7 @@ function getPrm(fd: ReturnType<MyForm["getMyData"]>, count: boolean) {
 
 
 async function doSearch() {
+  firstSearch = false;
   const div = byId(HTMLDivElement, "result", true)!;
   new MKQ(F.getMyQuery()).redirect(true);
   if (!F.checkValidity(true)) return false;

@@ -97,3 +97,20 @@ export function toTable<N extends TableName, T extends Tables<N>>(head: string[]
   table.push("</table>");
   return table;
 }
+
+export function executeWhen(
+  condition: (tries: number) => boolean|null,
+  action: () => void,
+  seconds = 1
+): void {
+  let tries = 0;
+  const timer = setInterval(() => {
+    const ok = condition(++tries);
+    console.log("executeWhen", tries, ok);
+    if (ok === false) return;
+    if (ok === null || ok === true) {
+      clearInterval(timer);
+    }
+    if (ok === true) action();
+  }, seconds*1000);
+}
