@@ -464,7 +464,7 @@ async function doSearch() {
       "<abbr title='Sueldo bruto anual'>€</abbr>",
       "Organismo",
       "Lugar",
-      "<abbr title='Información adiciona'>Info</abbr>",
+      "<abbr title='Información adicional'>Info</abbr>",
     ]],
     rpt,
     (i: Tables<"rpt">) => [
